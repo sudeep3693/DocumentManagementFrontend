@@ -23,6 +23,54 @@ export const refreshTokenApi = async (refreshToken) => {
   return response.data;
 };
 
+// ==================== ADMIN USER MANAGEMENT (Real Backend) ====================
+
+export const getAdminUsersApi = async (status) => {
+  const response = await axiosInstance.get(`/api/v1/admin/users/by-status`, {
+    params: status ? { status } : {},
+  });
+  return response.data;
+};
+
+export const getAdminUserDetailsApi = async (onboardingSessionId) => {
+  const response = await axiosInstance.get(`/api/v1/admin/users/details/${onboardingSessionId}`);
+  return response.data;
+};
+
+export const acceptRejectUserApi = async (data) => {
+  const response = await axiosInstance.post('/api/v1/admin/users/accept', data);
+  return response.data;
+};
+
+export const getRolesApi = async () => {
+  const response = await axiosInstance.get('/api/v1/admin/roles');
+  return response.data;
+};
+
+// ==================== ADMIN USER STATUS MANAGEMENT (Real Backend) ====================
+
+export const getAdminAllUsersApi = async () => {
+  const response = await axiosInstance.get('/api/v1/admin/users');
+  return response.data;
+};
+
+export const getAdminPublishedUsersApi = async (status) => {
+  const response = await axiosInstance.get('/api/v1/admin/users/published', {
+    params: { status },
+  });
+  return response.data;
+};
+
+export const updateUserStatusApi = async (data) => {
+  const response = await axiosInstance.put('/api/v1/admin/users/status', data);
+  return response.data;
+};
+
+export const getAdminUserByIdApi = async (userId) => {
+  const response = await axiosInstance.get(`/api/v1/admin/users/${userId}`);
+  return response.data;
+};
+
 // ==================== ONBOARDING SERVICES (Real Backend) ====================
 
 export const initiateOnboardingApi = async (contactNumber) => {

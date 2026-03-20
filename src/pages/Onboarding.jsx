@@ -37,7 +37,11 @@ const Onboarding = () => {
 
   const getFrontendStep = (backendStep) => {
     if (backendStep === 'STARTED') return 'COMPANY_INFO';
-    if (STEP_ORDER.includes(backendStep)) return backendStep;
+    const idx = STEP_ORDER.indexOf(backendStep);
+    if (idx !== -1 && idx < STEP_ORDER.length - 1) {
+      return STEP_ORDER[idx + 1];
+    }
+    if (backendStep === 'COMPLETED') return 'COMPLETED';
     return null;
   };
 
@@ -192,6 +196,7 @@ const Onboarding = () => {
             <CompanyInfoStep
               data={{ contactNumber: formData.contactNumber }}
               prefill={prefill}
+              formData={formData}
               onNext={handleCompanyInfoNext}
             />
           )}
@@ -199,6 +204,7 @@ const Onboarding = () => {
           {currentStep === 'COMPANY_DOCUMENT_INFO' && (
             <DocumentInfoStep
               prefill={prefill}
+              formData={formData}
               onNext={handleDocumentInfoNext}
               onBack={goBack}
             />
@@ -207,6 +213,7 @@ const Onboarding = () => {
           {currentStep === 'ADDRESS_INFO' && (
             <AddressInfoStep
               prefill={prefill}
+              formData={formData}
               onNext={handleAddressNext}
               onBack={goBack}
             />
@@ -215,6 +222,7 @@ const Onboarding = () => {
           {currentStep === 'AUTHORIZED_PERSON_INFO' && (
             <AuthorizedPersonStep
               prefill={prefill}
+              formData={formData}
               onNext={handleAuthorizedPersonNext}
               onBack={goBack}
             />

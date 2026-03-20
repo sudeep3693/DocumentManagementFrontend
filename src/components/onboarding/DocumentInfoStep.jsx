@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const DOCUMENT_TYPES = [
   { value: 1, label: 'Registration Certificate' },
@@ -10,13 +10,18 @@ const DOCUMENT_TYPES = [
 
 const emptyDoc = { documentType: '', documentNumber: '', documentIssueDate: '' };
 
-const DocumentInfoStep = ({ prefill, onNext, onBack }) => {
+const DocumentInfoStep = ({ prefill, formData, onNext, onBack }) => {
   const [documents, setDocuments] = useState([{ ...emptyDoc }]);
   const [errors, setErrors] = useState([]);
 
   useEffect(() => {
-    if (prefill?.documentInfo && prefill.documentInfo.length > 0) {
-      const docs = prefill.documentInfo.map((d) => ({
+    // Priority: formData (user's local edits) > prefill (server data)
+    const localDocs = formData?.documentInfoRequestDto;
+    const serverDocs = prefill?.documentInfo;
+    const source = localDocs || serverDocs;
+
+    if (source && source.length > 0) {
+      const docs = source.map((d) => ({
         documentType: d.documentType !== undefined && d.documentType !== null ? String(d.documentType) : '',
         documentNumber: d.documentNumber || '',
         documentIssueDate: d.documentIssueDate || '',
@@ -24,7 +29,7 @@ const DocumentInfoStep = ({ prefill, onNext, onBack }) => {
       setDocuments(docs);
       setErrors(docs.map(() => ({})));
     }
-  }, [prefill]);
+  }, [prefill, formData]);
 
   const addDocument = () => {
     setDocuments([...documents, { ...emptyDoc }]);

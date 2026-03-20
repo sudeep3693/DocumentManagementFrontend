@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-const AddressInfoStep = ({ prefill, onNext, onBack }) => {
+const AddressInfoStep = ({ prefill, formData, onNext, onBack }) => {
   const [form, setForm] = useState({
     province: '',
     district: '',
@@ -12,18 +12,19 @@ const AddressInfoStep = ({ prefill, onNext, onBack }) => {
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
-    if (prefill?.addressInfo) {
-      const a = prefill.addressInfo;
+    // Priority: formData (user's local edits) > prefill (server data)
+    const source = formData?.address || prefill?.addressInfo;
+    if (source) {
       setForm({
-        province: a.province || '',
-        district: a.district || '',
-        municipality: a.municipality || '',
-        tole: a.tole || '',
-        wardNo: a.wardNo || '',
-        houseNo: a.houseNo || '',
+        province: source.province || '',
+        district: source.district || '',
+        municipality: source.municipality || '',
+        tole: source.tole || '',
+        wardNo: source.wardNo || '',
+        houseNo: source.houseNo || '',
       });
     }
-  }, [prefill]);
+  }, [prefill, formData]);
 
   const validate = () => {
     const errs = {};

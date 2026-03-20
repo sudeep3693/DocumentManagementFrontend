@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-const AuthorizedPersonStep = ({ prefill, onNext, onBack }) => {
+const AuthorizedPersonStep = ({ prefill, formData, onNext, onBack }) => {
   const [form, setForm] = useState({
     fullName: '',
     fullNameNepali: '',
@@ -13,19 +13,20 @@ const AuthorizedPersonStep = ({ prefill, onNext, onBack }) => {
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
-    if (prefill?.authorizedPersonInfo) {
-      const p = prefill.authorizedPersonInfo;
+    // Priority: formData (user's local edits) > prefill (server data)
+    const source = formData?.authorizedPersonRequestDto || prefill?.authorizedPersonInfo;
+    if (source) {
       setForm({
-        fullName: p.fullName || '',
-        fullNameNepali: p.fullNameNepali || '',
-        contactNo: p.contactNo || '',
-        emailAddress: p.emailAddress || '',
-        citizenshipNo: p.citizenshipNo || '',
-        citizenshipIssuedDistrict: p.citizenshipIssuedDistrict || '',
-        citizenshipIssuedDate: p.citizenshipIssuedDate || '',
+        fullName: source.fullName || '',
+        fullNameNepali: source.fullNameNepali || '',
+        contactNo: source.contactNo || '',
+        emailAddress: source.emailAddress || '',
+        citizenshipNo: source.citizenshipNo || '',
+        citizenshipIssuedDistrict: source.citizenshipIssuedDistrict || '',
+        citizenshipIssuedDate: source.citizenshipIssuedDate || '',
       });
     }
-  }, [prefill]);
+  }, [prefill, formData]);
 
   const validate = () => {
     const errs = {};

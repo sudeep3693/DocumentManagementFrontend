@@ -8,7 +8,7 @@ const COOPERATIVE_TYPES = [
   { value: 5, label: 'Other' },
 ];
 
-const CompanyInfoStep = ({ data, prefill, onNext }) => {
+const CompanyInfoStep = ({ data, prefill, formData, onNext }) => {
   const [form, setForm] = useState({
     nameEnglish: '',
     nameNepali: '',
@@ -20,7 +20,18 @@ const CompanyInfoStep = ({ data, prefill, onNext }) => {
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
-    if (prefill?.cooperativeInfo) {
+    // Priority: formData (user's local edits) > prefill (server data)
+    if (formData?.companyInfoRequestDto) {
+      const fd = formData.companyInfoRequestDto;
+      setForm({
+        nameEnglish: fd.nameEnglish || '',
+        nameNepali: fd.nameNepali || '',
+        cooperativeType: fd.cooperativeType != null ? String(fd.cooperativeType) : '',
+        cooperativeRegisteredOffice: fd.cooperativeRegisteredOffice || '',
+        email: fd.email || '',
+        contactNumber: fd.contactNumber || data?.contactNumber || '',
+      });
+    } else if (prefill?.cooperativeInfo) {
       const ci = prefill.cooperativeInfo;
       setForm({
         nameEnglish: ci.nameEnglish || '',
@@ -33,7 +44,7 @@ const CompanyInfoStep = ({ data, prefill, onNext }) => {
     } else if (data?.contactNumber) {
       setForm((prev) => ({ ...prev, contactNumber: data.contactNumber }));
     }
-  }, [prefill, data]);
+  }, [prefill, data, formData]);
 
   const validate = () => {
     const errs = {};

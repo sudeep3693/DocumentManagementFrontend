@@ -12,7 +12,9 @@ import PendingApproval from '../pages/PendingApproval';
 import UserDashboard from '../pages/UserDashboard';
 import AdminDashboard from '../pages/AdminDashboard';
 import UserManagement from '../pages/UserManagement';
+import UserDetailPage from '../pages/UserDetailPage';
 import ClientManagement from '../pages/ClientManagement';
+import UserStatusManagement from '../pages/UserStatusManagement';
 import Profile from '../pages/Profile';
 
 const AuthRedirect = ({ children }) => {
@@ -58,6 +60,8 @@ const AppRouter = () => {
         }>
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/users" element={<UserManagement />} />
+          <Route path="/admin/users/:onboardingSessionId" element={<UserDetailPage />} />
+          <Route path="/admin/user-status" element={<UserStatusManagement />} />
         </Route>
 
         {/* Catch all */}

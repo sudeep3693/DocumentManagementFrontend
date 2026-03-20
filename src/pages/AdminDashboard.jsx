@@ -1,30 +1,35 @@
 import { useState, useEffect } from 'react';
-import { getUsersApi } from '../services/api';
+import { useNavigate } from 'react-router-dom';
+import { getAdminUsersApi } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 const AdminDashboard = () => {
-  const [users, setUsers] = useState([]);
+  const [counts, setCounts] = useState({ pending: 0, accepted: 0, rejected: 0, total: 0 });
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchCounts = async () => {
       try {
-        const data = await getUsersApi();
-        setUsers(data);
+        const [pending, accepted, rejected] = await Promise.all([
+          getAdminUsersApi('p').catch(() => []),
+          getAdminUsersApi('a').catch(() => []),
+          getAdminUsersApi('r').catch(() => []),
+        ]);
+        const p = Array.isArray(pending) ? pending.length : 0;
+        const a = Array.isArray(accepted) ? accepted.length : 0;
+        const r = Array.isArray(rejected) ? rejected.length : 0;
+        setCounts({ pending: p, accepted: a, rejected: r, total: p + a + r });
       } catch {
         // ignore
       } finally {
         setLoading(false);
       }
     };
-    fetchData();
+    fetchCounts();
   }, []);
 
   if (loading) return <LoadingSpinner />;
-
-  const pending = users.filter((u) => u.status === 'pending').length;
-  const approved = users.filter((u) => u.status === 'approved').length;
-  const rejected = users.filter((u) => u.status === 'rejected').length;
 
   return (
     <div className="page-content">
@@ -35,28 +40,28 @@ const AdminDashboard = () => {
         <div className="stat-card">
           <div className="stat-icon">👥</div>
           <div className="stat-info">
-            <h3>{users.length}</h3>
+            <h3>{counts.total}</h3>
             <p>Total Users</p>
           </div>
         </div>
         <div className="stat-card">
           <div className="stat-icon">⏳</div>
           <div className="stat-info">
-            <h3>{pending}</h3>
+            <h3>{counts.pending}</h3>
             <p>Pending Approval</p>
           </div>
         </div>
         <div className="stat-card">
           <div className="stat-icon">✅</div>
           <div className="stat-info">
-            <h3>{approved}</h3>
-            <p>Approved</p>
+            <h3>{counts.accepted}</h3>
+            <p>Accepted</p>
           </div>
         </div>
         <div className="stat-card">
           <div className="stat-icon">❌</div>
           <div className="stat-info">
-            <h3>{rejected}</h3>
+            <h3>{counts.rejected}</h3>
             <p>Rejected</p>
           </div>
         </div>
@@ -65,7 +70,7 @@ const AdminDashboard = () => {
       <div className="card" style={{ marginTop: '2rem' }}>
         <h3>Quick Actions</h3>
         <div className="quick-actions">
-          <a href="/admin/users" className="btn btn-primary">Manage Users</a>
+          <button className="btn btn-primary" onClick={() => navigate('/admin/users')}>Manage Users</button>
         </div>
       </div>
     </div>

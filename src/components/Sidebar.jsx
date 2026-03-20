@@ -13,6 +13,7 @@ const Sidebar = () => {
   const adminLinks = [
     { to: '/admin/dashboard', label: 'Dashboard', icon: '📊' },
     { to: '/admin/users', label: 'User Management', icon: '👥' },
+    { to: '/admin/user-status', label: 'User Status', icon: '🔄' },
   ];
 
   const userLinks = [

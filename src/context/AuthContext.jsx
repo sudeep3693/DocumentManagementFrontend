@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { loginApi, updateProfileApi } from '../services/api';
 
 const AuthContext = createContext(null);
@@ -49,6 +49,27 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('user', JSON.stringify(user));
     setAuthState({ user, accessToken, refreshToken, isAuthenticated: true });
   };
+
+  // Sync React state when axios interceptor refreshes tokens or forces logout
+  useEffect(() => {
+    const handleTokenRefreshed = () => {
+      const { accessToken, refreshToken, user } = loadStoredAuth();
+      if (accessToken && user) {
+        setAuthState({ user, accessToken, refreshToken, isAuthenticated: true });
+      }
+    };
+
+    const handleForceLogout = () => {
+      setAuthState({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false });
+    };
+
+    window.addEventListener('auth-token-refreshed', handleTokenRefreshed);
+    window.addEventListener('auth-force-logout', handleForceLogout);
+    return () => {
+      window.removeEventListener('auth-token-refreshed', handleTokenRefreshed);
+      window.removeEventListener('auth-force-logout', handleForceLogout);
+    };
+  }, []);
 
   const login = useCallback(async (username, password) => {
     const data = await loginApi(username, password);

@@ -1,127 +1,124 @@
 import { useState, useEffect } from 'react';
-import { getUsersApi, approveUserApi, rejectUserApi } from '../services/api';
+import { useNavigate } from 'react-router-dom';
+import { getAdminUsersApi } from '../services/api';
 import { useToast } from '../context/ToastContext';
 import LoadingSpinner from '../components/LoadingSpinner';
+
+const STATUS_TABS = [
+  { key: 'p', label: 'Pending', icon: '⏳' },
+  { key: 'a', label: 'Accepted', icon: '✅' },
+  { key: 'r', label: 'Rejected', icon: '❌' },
+];
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(null);
+  const [activeTab, setActiveTab] = useState('p');
   const toast = useToast();
+  const navigate = useNavigate();
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (status) => {
+    setLoading(true);
     try {
-      const data = await getUsersApi();
-      setUsers(data);
+      const data = await getAdminUsersApi(status);
+      setUsers(Array.isArray(data) ? data : []);
     } catch {
       toast.error('Failed to load users');
+      setUsers([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    fetchUsers(activeTab);
+  }, [activeTab]);
 
-  const handleApprove = async (id) => {
-    setActionLoading(id);
-    try {
-      await approveUserApi(id);
-      toast.success('User approved successfully');
-      fetchUsers();
-    } catch {
-      toast.error('Failed to approve user');
-    } finally {
-      setActionLoading(null);
-    }
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
   };
 
-  const handleReject = async (id) => {
-    setActionLoading(id);
-    try {
-      await rejectUserApi(id);
-      toast.success('User rejected');
-      fetchUsers();
-    } catch {
-      toast.error('Failed to reject user');
-    } finally {
-      setActionLoading(null);
-    }
+  const handleRowClick = (sessionId) => {
+    navigate(`/admin/users/${sessionId}`, { state: { status: activeTab } });
   };
 
-  const getStatusBadge = (status) => {
-    const classes = {
-      approved: 'badge badge-success',
-      pending: 'badge badge-warning',
-      rejected: 'badge badge-danger',
-      new: 'badge badge-info',
-    };
-    return <span className={classes[status] || 'badge'}>{status}</span>;
+  const getStatusLabel = (key) => {
+    const tab = STATUS_TABS.find((t) => t.key === key);
+    return tab ? tab.label : key;
   };
-
-  if (loading) return <LoadingSpinner />;
 
   return (
     <div className="page-content">
       <h1>User Management</h1>
-      <p className="page-subtitle">Manage registered users</p>
+      <p className="page-subtitle">Manage registered users by status</p>
 
+      {/* Status Tabs */}
+      <div className="status-tabs">
+        {STATUS_TABS.map((tab) => (
+          <button
+            key={tab.key}
+            className={`status-tab ${activeTab === tab.key ? 'active' : ''}`}
+            onClick={() => handleTabChange(tab.key)}
+          >
+            <span className="tab-icon">{tab.icon}</span>
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Users Table */}
       <div className="card">
-        <div className="table-wrapper">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Organization</th>
-                <th>Status</th>
-                <th>Registered</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.length === 0 ? (
+        <div className="card-header">
+          <h3>{getStatusLabel(activeTab)} Users</h3>
+          <button className="btn btn-sm btn-outline" onClick={() => fetchUsers(activeTab)}>
+            🔄 Refresh
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="table-loading">
+            <LoadingSpinner />
+          </div>
+        ) : (
+          <div className="table-wrapper">
+            <table className="data-table">
+              <thead>
                 <tr>
-                  <td colSpan="6" className="empty-state">No users found</td>
+                  <th>Company Name</th>
+                  <th>Contact Number</th>
+                  <th>Authorized Person</th>
+                  <th>Actions</th>
                 </tr>
-              ) : (
-                users.map((user) => (
-                  <tr key={user.id}>
-                    <td>{user.name}</td>
-                    <td>{user.email}</td>
-                    <td>{user.organization || '—'}</td>
-                    <td>{getStatusBadge(user.status)}</td>
-                    <td>{new Date(user.createdAt).toLocaleDateString()}</td>
-                    <td>
-                      {user.status === 'pending' && (
-                        <div className="action-btns">
-                          <button
-                            className="btn btn-sm btn-success"
-                            onClick={() => handleApprove(user.id)}
-                            disabled={actionLoading === user.id}
-                          >
-                            {actionLoading === user.id ? '...' : 'Approve'}
-                          </button>
-                          <button
-                            className="btn btn-sm btn-danger"
-                            onClick={() => handleReject(user.id)}
-                            disabled={actionLoading === user.id}
-                          >
-                            {actionLoading === user.id ? '...' : 'Reject'}
-                          </button>
-                        </div>
-                      )}
-                      {user.status !== 'pending' && (
-                        <span className="text-muted">—</span>
-                      )}
+              </thead>
+              <tbody>
+                {users.length === 0 ? (
+                  <tr>
+                    <td colSpan="4" className="empty-state">
+                      No {getStatusLabel(activeTab).toLowerCase()} users found
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ) : (
+                  users.map((user) => (
+                    <tr
+                      key={user.onboardingSessionId}
+                      className="clickable-row"
+                      onClick={() => handleRowClick(user.onboardingSessionId)}
+                    >
+                      <td>
+                        <span className="user-company-name">{user.companyNameEnglish || '—'}</span>
+                      </td>
+                      <td>{user.contactNumber || '—'}</td>
+                      <td>{user.authorizedPersonNameEnglish || '—'}</td>
+                      <td>
+                        <button className="btn btn-sm btn-primary">View Details →</button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

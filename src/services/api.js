@@ -83,6 +83,13 @@ export const submitOnboardingApi = async (data) => {
   return response.data;
 };
 
+export const getCodeValuesApi = async (codeId, parentId) => {
+  const params = { codeId };
+  if (parentId) params.parentId = parentId;
+  const response = await axiosInstance.get('/api/v1/codevalues', { params });
+  return response.data;
+};
+
 // ==================== USER MANAGEMENT (Mock — Admin) ====================
 
 export const getUsersApi = async () => {

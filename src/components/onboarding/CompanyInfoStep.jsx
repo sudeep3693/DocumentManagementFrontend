@@ -1,12 +1,7 @@
 import { useState, useEffect } from 'react';
+import { getCodeValuesApi } from '../../services/api';
 
-const COOPERATIVE_TYPES = [
-  { value: 1, label: 'Savings' },
-  { value: 2, label: 'Credit' },
-  { value: 3, label: 'Multi-purpose' },
-  { value: 4, label: 'Agriculture' },
-  { value: 5, label: 'Other' },
-];
+const CODE_COOPERATIVE_TYPE = 57;
 
 const CompanyInfoStep = ({ data, prefill, formData, onNext }) => {
   const [form, setForm] = useState({
@@ -18,6 +13,13 @@ const CompanyInfoStep = ({ data, prefill, formData, onNext }) => {
     contactNumber: '',
   });
   const [errors, setErrors] = useState({});
+  const [cooperativeTypes, setCooperativeTypes] = useState([]);
+
+  useEffect(() => {
+    getCodeValuesApi(CODE_COOPERATIVE_TYPE)
+      .then(res => setCooperativeTypes(Array.isArray(res) ? res : (res?.content || res?.data || [])))
+      .catch((err) => console.error('Failed to load cooperative types', err));
+  }, []);
 
   useEffect(() => {
     // Priority: formData (user's local edits) > prefill (server data)
@@ -96,8 +98,8 @@ const CompanyInfoStep = ({ data, prefill, formData, onNext }) => {
           <label htmlFor="cooperativeType">Cooperative Type *</label>
           <select id="cooperativeType" name="cooperativeType" value={form.cooperativeType} onChange={handleChange}>
             <option value="">Select type</option>
-            {COOPERATIVE_TYPES.map((t) => (
-              <option key={t.value} value={t.value}>{t.label}</option>
+            {cooperativeTypes.map((t) => (
+              <option key={t.id} value={t.id}>{t.codeValueOptional || t.codeValue}</option>
             ))}
           </select>
           {errors.cooperativeType && <span className="form-error">{errors.cooperativeType}</span>}

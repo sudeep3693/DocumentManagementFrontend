@@ -2,10 +2,6 @@ import axiosInstance from './axiosInstance';
 import {
   getUsers,
   updateUser,
-  getClients,
-  addClient as addClientData,
-  updateClient as updateClientData,
-  deleteClient as deleteClientData,
 } from './mockData';
 
 // Simulate async API delay for mock endpoints
@@ -115,30 +111,31 @@ export const rejectUserApi = async (userId) => {
   return userData;
 };
 
-// ==================== CLIENT SERVICES (Mock) ====================
+// ==================== CLIENT SERVICES (Real Backend) ====================
 
-export const getClientsApi = async (userId) => {
-  await delay();
-  return getClients(userId);
+export const getClientsApi = async (params) => {
+  const response = await axiosInstance.get('/api/v1/clients', { params });
+  return response.data;
+};
+
+export const getClientByIdApi = async (clientId) => {
+  const response = await axiosInstance.get(`/api/v1/clients/${clientId}`);
+  return response.data;
 };
 
 export const addClientApi = async (clientData) => {
-  await delay();
-  return addClientData(clientData);
+  const response = await axiosInstance.post('/api/v1/clients', clientData);
+  return response.data;
 };
 
-export const updateClientApi = async (clientId, updates) => {
-  await delay();
-  const updated = updateClientData(clientId, updates);
-  if (!updated) throw new Error('Client not found');
-  return updated;
+export const updateClientApi = async (clientId, clientData) => {
+  const response = await axiosInstance.put(`/api/v1/clients/${clientId}`, clientData);
+  return response.data;
 };
 
 export const deleteClientApi = async (clientId) => {
-  await delay();
-  const success = deleteClientData(clientId);
-  if (!success) throw new Error('Client not found');
-  return { success: true };
+  const response = await axiosInstance.delete(`/api/v1/clients/${clientId}`);
+  return response.data;
 };
 
 // ==================== PROFILE (Mock) ====================

@@ -14,6 +14,8 @@ import AdminDashboard from '../pages/AdminDashboard';
 import UserManagement from '../pages/UserManagement';
 import UserDetailPage from '../pages/UserDetailPage';
 import ClientManagement from '../pages/ClientManagement';
+import ClientFormPage from '../pages/ClientFormPage';
+import ClientDetailsPage from '../pages/ClientDetailsPage';
 import UserStatusManagement from '../pages/UserStatusManagement';
 import Profile from '../pages/Profile';
 
@@ -49,6 +51,9 @@ const AppRouter = () => {
         }>
           <Route path="/dashboard" element={<UserDashboard />} />
           <Route path="/clients" element={<ClientManagement />} />
+          <Route path="/clients/new" element={<ClientFormPage />} />
+          <Route path="/clients/:id" element={<ClientDetailsPage />} />
+          <Route path="/clients/:id/edit" element={<ClientFormPage />} />
           <Route path="/profile" element={<Profile />} />
         </Route>
 

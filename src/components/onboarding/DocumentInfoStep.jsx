@@ -1,18 +1,20 @@
 import { useState, useEffect } from 'react';
+import { getCodeValuesApi } from '../../services/api';
 
-const DOCUMENT_TYPES = [
-  { value: 1, label: 'Registration Certificate' },
-  { value: 2, label: 'PAN Certificate' },
-  { value: 3, label: 'Tax Clearance' },
-  { value: 4, label: 'Audit Report' },
-  { value: 5, label: 'Other' },
-];
+const CODE_DOCUMENT_TYPE = 58;
 
 const emptyDoc = { documentType: '', documentNumber: '', documentIssueDate: '' };
 
 const DocumentInfoStep = ({ prefill, formData, onNext, onBack }) => {
   const [documents, setDocuments] = useState([{ ...emptyDoc }]);
   const [errors, setErrors] = useState([]);
+  const [documentTypes, setDocumentTypes] = useState([]);
+
+  useEffect(() => {
+    getCodeValuesApi(CODE_DOCUMENT_TYPE)
+      .then(res => setDocumentTypes(Array.isArray(res) ? res : (res?.content || res?.data || [])))
+      .catch((err) => console.error('Failed to load document types', err));
+  }, []);
 
   useEffect(() => {
     // Priority: formData (user's local edits) > prefill (server data)
@@ -100,8 +102,8 @@ const DocumentInfoStep = ({ prefill, formData, onNext, onBack }) => {
               <label>Type *</label>
               <select value={doc.documentType} onChange={(e) => handleChange(index, 'documentType', e.target.value)}>
                 <option value="">Select</option>
-                {DOCUMENT_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
+                {documentTypes.map((t) => (
+                  <option key={t.id} value={t.id}>{t.codeValueOptional || t.codeValue}</option>
                 ))}
               </select>
               {errors[index]?.documentType && <span className="form-error">{errors[index].documentType}</span>}

@@ -126,8 +126,8 @@ const ClientDetailsPage = () => {
             <div className="detail-item"><strong>Membership ID:</strong><br/>{client.membershipId}</div>
             <div className="detail-item"><strong>Name (English):</strong><br/>{client.fullNameEnglish}</div>
             <div className="detail-item"><strong>पूरा नाम (Nepali):</strong><br/>{client.fullNameNepali}</div>
-            <div className="detail-item"><strong>Date of Birth (BS):</strong><br/>{client.dateOfBirthBs}</div>
-            <div className="detail-item"><strong>Membership Date (BS):</strong><br/>{client.dateOfMembershipBs}</div>
+            <div className="detail-item"><strong>Date of Birth (BS):</strong><br/>{client.dateOfBirth?.bsDate}</div>
+            <div className="detail-item"><strong>Membership Date (BS):</strong><br/>{client.dateOfMembership?.bsDate}</div>
             <div className="detail-item"><strong>Status:</strong><br/>
               <span className={`badge ${client.isActive ? 'badge-success' : 'badge-danger'}`}>
                 {client.isActive ? 'Active' : 'Inactive'}
@@ -145,7 +145,7 @@ const ClientDetailsPage = () => {
           <div className="form-grid">
             <div className="detail-item"><strong>Citizenship No:</strong><br/>{client.citizenshipNumber}</div>
             <div className="detail-item"><strong>Issue District:</strong><br/>{districts[client.citizenshipIssueDistrict] || client.citizenshipIssueDistrict}</div>
-            <div className="detail-item"><strong>Issue Date (BS):</strong><br/>{client.citizenshipIssueDateBs}</div>
+            <div className="detail-item"><strong>Issue Date (BS):</strong><br/>{client.citizenshipIssueDate?.bsDate}</div>
             <div className="detail-item"><strong>Share Amount:</strong><br/>NPR {client.shareAmount}</div>
             <div className="detail-item"><strong>Share Number:</strong><br/>{client.shareNumber}</div>
           </div>

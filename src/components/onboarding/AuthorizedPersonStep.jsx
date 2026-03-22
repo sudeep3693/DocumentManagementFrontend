@@ -1,4 +1,17 @@
 import { useState, useEffect } from 'react';
+import { getCodeValuesApi } from '../../services/api';
+import NepaliDatePickerWrapper from '../NepaliDatePickerWrapper';
+
+const CODE_DISTRICT = 1002;
+
+const extractArray = (data) => {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  if (data.data && Array.isArray(data.data)) return data.data;
+  if (data.content && Array.isArray(data.content)) return data.content;
+  if (data.data && data.data.content && Array.isArray(data.data.content)) return data.data.content;
+  return [];
+};
 
 const AuthorizedPersonStep = ({ prefill, formData, onNext, onBack }) => {
   const [form, setForm] = useState({
@@ -11,9 +24,15 @@ const AuthorizedPersonStep = ({ prefill, formData, onNext, onBack }) => {
     citizenshipIssuedDate: '',
   });
   const [errors, setErrors] = useState({});
+  const [districts, setDistricts] = useState([]);
 
   useEffect(() => {
-    // Priority: formData (user's local edits) > prefill (server data)
+    getCodeValuesApi(CODE_DISTRICT)
+      .then(res => setDistricts(extractArray(res)))
+      .catch(err => console.error('Failed to load districts', err));
+  }, []);
+
+  useEffect(() => {
     const source = formData?.authorizedPersonRequestDto || prefill?.authorizedPersonInfo;
     if (source) {
       setForm({
@@ -22,7 +41,7 @@ const AuthorizedPersonStep = ({ prefill, formData, onNext, onBack }) => {
         contactNo: source.contactNo || '',
         emailAddress: source.emailAddress || '',
         citizenshipNo: source.citizenshipNo || '',
-        citizenshipIssuedDistrict: source.citizenshipIssuedDistrict || '',
+        citizenshipIssuedDistrict: source.citizenshipIssuedDistrict != null ? String(source.citizenshipIssuedDistrict) : '',
         citizenshipIssuedDate: source.citizenshipIssuedDate || '',
       });
     }
@@ -30,18 +49,18 @@ const AuthorizedPersonStep = ({ prefill, formData, onNext, onBack }) => {
 
   const validate = () => {
     const errs = {};
-    if (!form.fullName.trim()) errs.fullName = 'Full name is required';
+    if (!form.fullName.trim()) errs.fullName = 'Required';
     else if (form.fullName.length > 200) errs.fullName = 'Max 200 characters';
-    if (!form.fullNameNepali.trim()) errs.fullNameNepali = 'Name in Nepali is required';
+    if (!form.fullNameNepali.trim()) errs.fullNameNepali = 'Required';
     else if (form.fullNameNepali.length > 200) errs.fullNameNepali = 'Max 200 characters';
-    if (!form.contactNo.trim()) errs.contactNo = 'Contact number is required';
+    if (!form.contactNo.trim()) errs.contactNo = 'Required';
     else if (!/^[0-9]{7,10}$/.test(form.contactNo)) errs.contactNo = 'Must be 7-10 digits';
-    if (!form.emailAddress.trim()) errs.emailAddress = 'Email is required';
+    if (!form.emailAddress.trim()) errs.emailAddress = 'Required';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.emailAddress)) errs.emailAddress = 'Invalid email';
-    if (!form.citizenshipNo.trim()) errs.citizenshipNo = 'Citizenship number is required';
+    if (!form.citizenshipNo.trim()) errs.citizenshipNo = 'Required';
     else if (form.citizenshipNo.length > 50) errs.citizenshipNo = 'Max 50 characters';
-    if (!form.citizenshipIssuedDistrict.trim()) errs.citizenshipIssuedDistrict = 'Issued district is required';
-    if (!form.citizenshipIssuedDate) errs.citizenshipIssuedDate = 'Issued date is required';
+    if (!form.citizenshipIssuedDistrict) errs.citizenshipIssuedDistrict = 'Required';
+    if (!form.citizenshipIssuedDate) errs.citizenshipIssuedDate = 'Required';
     return errs;
   };
 
@@ -50,7 +69,13 @@ const AuthorizedPersonStep = ({ prefill, formData, onNext, onBack }) => {
     const errs = validate();
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
-    onNext(form);
+    
+    // Parse Long field for district
+    const payload = {
+      ...form,
+      citizenshipIssuedDistrict: parseInt(form.citizenshipIssuedDistrict, 10),
+    };
+    onNext(payload);
   };
 
   const handleChange = (e) => {
@@ -60,43 +85,50 @@ const AuthorizedPersonStep = ({ prefill, formData, onNext, onBack }) => {
 
   return (
     <form onSubmit={handleSubmit}>
-      <h3>Authorized Person Details</h3>
-      <p className="step-desc">Chairperson or Manager details</p>
-      <div className="form-grid">
-        <div className="form-group">
-          <label htmlFor="fullName">Full Name (English) *</label>
-          <input id="fullName" name="fullName" value={form.fullName} onChange={handleChange} placeholder="e.g. Ram Bahadur Thapa" />
-          {errors.fullName && <span className="form-error">{errors.fullName}</span>}
+      <div className="onboarding-form-area" style={{ border: '1px solid #e2e8f0', padding: '1.25rem', borderRadius: '8px', marginBottom: '1.5rem', background: '#fafbfc' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>
+          <h3 style={{ margin: 0, fontWeight: 600 }}>Authorized Person Details</h3>
         </div>
-        <div className="form-group">
-          <label htmlFor="fullNameNepali">Full Name (Nepali) *</label>
-          <input id="fullNameNepali" name="fullNameNepali" value={form.fullNameNepali} onChange={handleChange} placeholder="e.g. राम बहादुर थापा" />
-          {errors.fullNameNepali && <span className="form-error">{errors.fullNameNepali}</span>}
-        </div>
-        <div className="form-group">
-          <label htmlFor="contactNo">Contact Number *</label>
-          <input id="contactNo" name="contactNo" value={form.contactNo} onChange={handleChange} placeholder="9841234567" maxLength={10} />
-          {errors.contactNo && <span className="form-error">{errors.contactNo}</span>}
-        </div>
-        <div className="form-group">
-          <label htmlFor="emailAddress">Email *</label>
-          <input id="emailAddress" name="emailAddress" type="email" value={form.emailAddress} onChange={handleChange} placeholder="ram.thapa@email.com" />
-          {errors.emailAddress && <span className="form-error">{errors.emailAddress}</span>}
-        </div>
-        <div className="form-group">
-          <label htmlFor="citizenshipNo">Citizenship No *</label>
-          <input id="citizenshipNo" name="citizenshipNo" value={form.citizenshipNo} onChange={handleChange} placeholder="12345/67890" />
-          {errors.citizenshipNo && <span className="form-error">{errors.citizenshipNo}</span>}
-        </div>
-        <div className="form-group">
-          <label htmlFor="citizenshipIssuedDistrict">Citizenship Issued District *</label>
-          <input id="citizenshipIssuedDistrict" name="citizenshipIssuedDistrict" value={form.citizenshipIssuedDistrict} onChange={handleChange} placeholder="e.g. Kaski" />
-          {errors.citizenshipIssuedDistrict && <span className="form-error">{errors.citizenshipIssuedDistrict}</span>}
-        </div>
-        <div className="form-group">
-          <label htmlFor="citizenshipIssuedDate">Citizenship Issued Date *</label>
-          <input id="citizenshipIssuedDate" name="citizenshipIssuedDate" type="date" value={form.citizenshipIssuedDate} onChange={handleChange} />
-          {errors.citizenshipIssuedDate && <span className="form-error">{errors.citizenshipIssuedDate}</span>}
+        
+        <div className="form-grid">
+          <div className="form-group">
+            <label htmlFor="fullName">Full Name (English) *</label>
+            <input id="fullName" name="fullName" value={form.fullName} onChange={handleChange} placeholder="e.g. Ram Bahadur Thapa" />
+            {errors.fullName && <span className="form-error">{errors.fullName}</span>}
+          </div>
+          <div className="form-group">
+            <label htmlFor="fullNameNepali">Full Name (Nepali) *</label>
+            <input id="fullNameNepali" name="fullNameNepali" value={form.fullNameNepali} onChange={handleChange} placeholder="e.g. राम बहादुर थापा" />
+            {errors.fullNameNepali && <span className="form-error">{errors.fullNameNepali}</span>}
+          </div>
+          <div className="form-group">
+            <label htmlFor="contactNo">Contact Number *</label>
+            <input id="contactNo" name="contactNo" value={form.contactNo} onChange={handleChange} placeholder="9841234567" maxLength={10} />
+            {errors.contactNo && <span className="form-error">{errors.contactNo}</span>}
+          </div>
+          <div className="form-group">
+            <label htmlFor="emailAddress">Email *</label>
+            <input id="emailAddress" name="emailAddress" type="email" value={form.emailAddress} onChange={handleChange} placeholder="ram.thapa@email.com" />
+            {errors.emailAddress && <span className="form-error">{errors.emailAddress}</span>}
+          </div>
+          <div className="form-group">
+            <label htmlFor="citizenshipNo">Citizenship No *</label>
+            <input id="citizenshipNo" name="citizenshipNo" value={form.citizenshipNo} onChange={handleChange} placeholder="12345/67890" />
+            {errors.citizenshipNo && <span className="form-error">{errors.citizenshipNo}</span>}
+          </div>
+          <div className="form-group">
+            <label htmlFor="citizenshipIssuedDistrict">Citizenship Issued District *</label>
+            <select id="citizenshipIssuedDistrict" name="citizenshipIssuedDistrict" value={form.citizenshipIssuedDistrict} onChange={handleChange}>
+              <option value="">Select District</option>
+              {districts.map(d => <option key={d.id} value={d.id}>{d.codeValueOptional || d.codeValue}</option>)}
+            </select>
+            {errors.citizenshipIssuedDistrict && <span className="form-error">{errors.citizenshipIssuedDistrict}</span>}
+          </div>
+          <div className="form-group">
+            <label htmlFor="citizenshipIssuedDate">Citizenship Issued Date *</label>
+            <NepaliDatePickerWrapper name="citizenshipIssuedDate" value={form.citizenshipIssuedDate?.bsDate || form.citizenshipIssuedDate || ''} className="form-control" onChange={handleChange} />
+            {errors.citizenshipIssuedDate && <span className="form-error">{errors.citizenshipIssuedDate}</span>}
+          </div>
         </div>
       </div>
       <div className="step-actions">

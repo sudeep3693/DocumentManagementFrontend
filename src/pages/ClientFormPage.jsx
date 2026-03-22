@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
 import { addClientApi, updateClientApi, getClientByIdApi, getCodeValuesApi } from '../services/api';
 import './ClientLayout.css';
+import NepaliDatePickerWrapper from '../components/NepaliDatePickerWrapper';
 
 const CODE_IDS = {
   PROVINCE: 1001,
@@ -89,7 +90,7 @@ const ClientFormPage = () => {
   const [wards, setWards] = useState([]);
 
   useEffect(() => {
-    const fetchSelects = async () => {
+    const fetchData = async () => {
       try {
         const [prov, wardData, sTypes, aTypes, aDistricts] = await Promise.all([
           getCodeValuesApi(CODE_IDS.PROVINCE),
@@ -98,47 +99,84 @@ const ClientFormPage = () => {
           getCodeValuesApi(CODE_IDS.ANCESTOR_TYPE),
           getCodeValuesApi(CODE_IDS.DISTRICT),
         ]);
-        setProvinces(extractArray(prov));
-        setWards(extractArray(wardData));
-        setSpouseTypes(extractArray(sTypes));
-        setAncestorTypes(extractArray(aTypes));
-        setAllDistricts(extractArray(aDistricts));
-      } catch (err) {
-        console.error('Failed to load code values', err);
-      }
-    };
-    fetchSelects();
-  }, []);
+        const provincesList = extractArray(prov);
+        const wardsList = extractArray(wardData);
+        const spouseTypesList = extractArray(sTypes);
+        const ancestorTypesList = extractArray(aTypes);
+        const allDistrictsList = extractArray(aDistricts);
 
-  useEffect(() => {
-    if (isEditing) {
-      const fetchClient = async () => {
-        try {
+        setProvinces(provincesList);
+        setWards(wardsList);
+        setSpouseTypes(spouseTypesList);
+        setAncestorTypes(ancestorTypesList);
+        setAllDistricts(allDistrictsList);
+
+        if (isEditing) {
           const data = await getClientByIdApi(id);
+          const resolve = (list, val) => {
+            if (val === null || val === undefined || val === '') return '';
+            if (!isNaN(val)) return Number(val);
+            const match = list.find(item => item.codeValue === val || item.codeValueOptional === val || item.id == val);
+            return match ? match.id : val; 
+          };
+
           let pAddr = { ...emptyAddress, addressType: 'P' };
           let tAddr = { ...emptyAddress, addressType: 'T' };
           
           if (data.addresses && data.addresses.length > 0) {
+            const loadAddressCodeIds = async (addr) => {
+               if (!addr) return null;
+               const provId = resolve(provincesList, addr.province);
+               const distId = resolve(allDistrictsList, addr.district);
+               let munId = addr.municipality;
+               if (distId && addr.municipality && isNaN(addr.municipality)) {
+                   try {
+                     const munis = extractArray(await getCodeValuesApi(CODE_IDS.MUNICIPALITY, distId));
+                     munId = resolve(munis, addr.municipality);
+                   } catch {
+                     // ignore error
+                   }
+               } else if (distId && !isNaN(addr.municipality)) {
+                   munId = Number(addr.municipality);
+               }
+               return {
+                 ...emptyAddress,
+                 ...addr,
+                 province: provId,
+                 district: distId,
+                 municipality: munId,
+                 wardNo: resolve(wardsList, addr.wardNo)
+               };
+            };
             const tempP = data.addresses.find(a => a.addressType === 'P');
             const tempT = data.addresses.find(a => a.addressType === 'T');
-            if (tempP) pAddr = { ...emptyAddress, ...tempP };
-            if (tempT) tAddr = { ...emptyAddress, ...tempT };
+            if (tempP) pAddr = (await loadAddressCodeIds(tempP)) || pAddr;
+            if (tempT) tAddr = (await loadAddressCodeIds(tempT)) || tAddr;
           }
           
           setForm({
             ...emptyForm,
             ...data,
+            spouseType: resolve(spouseTypesList, data.spouseType),
+            ancestorType: resolve(ancestorTypesList, data.ancestorType),
+            citizenshipIssueDistrict: resolve(allDistrictsList, data.citizenshipIssueDistrict),
+            dateOfBirthBs: data.dateOfBirth || null,
+            citizenshipIssueDateBs: data.citizenshipIssueDate || null,
+            dateOfMembershipBs: data.dateOfMembership || null,
             addresses: [pAddr, tAddr]
           });
-        } catch (err) {
+        }
+      } catch (err) {
+        console.error('Failed to load data', err);
+        if (isEditing) {
           toast.error('Failed to load client details');
           navigate('/clients');
-        } finally {
-          setLoading(false);
         }
-      };
-      fetchClient();
-    }
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
   }, [id, isEditing, navigate, toast]);
 
   // Handle cascaded dropdowns for Permanent Address
@@ -261,6 +299,26 @@ const ClientFormPage = () => {
     payload.nomineesRelation = form.nomineesRelation ? Number(form.nomineesRelation) : null;
     payload.citizenshipIssueDistrict = form.citizenshipIssueDistrict ? Number(form.citizenshipIssueDistrict) : null;
 
+    const extractDateObj = (dateField) => {
+      if (!dateField) return null;
+      if (typeof dateField === 'object') {
+        return {
+          bsDate: dateField.bsDate,
+          adDate: dateField.adDate
+        };
+      }
+      return { bsDate: dateField, adDate: null };
+    };
+
+    // Convert dates back to objects
+    payload.dateOfBirth = extractDateObj(form.dateOfBirthBs);
+    payload.citizenshipIssueDate = extractDateObj(form.citizenshipIssueDateBs);
+    payload.dateOfMembership = extractDateObj(form.dateOfMembershipBs);
+    
+    delete payload.dateOfBirthBs;
+    delete payload.citizenshipIssueDateBs;
+    delete payload.dateOfMembershipBs;
+
     try {
       if (isEditing) {
         await updateClientApi(id, payload);
@@ -318,12 +376,12 @@ const ClientFormPage = () => {
             </div>
             <div className="form-group">
               <label>जन्म मिति / Date of Birth (BS) *</label>
-              <input type="date" name="dateOfBirthBs" value={form.dateOfBirthBs} onChange={handleChange} placeholder="YYYY-MM-DD" />
+              <NepaliDatePickerWrapper name="dateOfBirthBs" value={form.dateOfBirthBs?.bsDate || form.dateOfBirthBs || ''} className="form-control" onChange={handleChange} />
               {errors.dateOfBirthBs && <span className="form-error">{errors.dateOfBirthBs}</span>}
             </div>
             <div className="form-group">
               <label>सदस्यता मिति / Membership Date (BS) *</label>
-              <input type="date" name="dateOfMembershipBs" value={form.dateOfMembershipBs} onChange={handleChange} placeholder="YYYY-MM-DD" />
+              <NepaliDatePickerWrapper name="dateOfMembershipBs" value={form.dateOfMembershipBs?.bsDate || form.dateOfMembershipBs || ''} className="form-control" onChange={handleChange} />
               {errors.dateOfMembershipBs && <span className="form-error">{errors.dateOfMembershipBs}</span>}
             </div>
             <div className="form-group">
@@ -376,7 +434,7 @@ const ClientFormPage = () => {
             </div>
             <div className="form-group">
               <label>Issue Date / जारी मिति (BS) *</label>
-              <input type="date" name="citizenshipIssueDateBs" value={form.citizenshipIssueDateBs} onChange={handleChange} placeholder="YYYY-MM-DD" />
+              <NepaliDatePickerWrapper name="citizenshipIssueDateBs" value={form.citizenshipIssueDateBs?.bsDate || form.citizenshipIssueDateBs || ''} className="form-control" onChange={handleChange} />
               {errors.citizenshipIssueDateBs && <span className="form-error">{errors.citizenshipIssueDateBs}</span>}
             </div>
           </div>

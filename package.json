@@ -13,6 +13,7 @@
     "vite": "^8.0.1"
   },
   "dependencies": {
+    "@sbmdkl/nepali-datepicker-reactjs": "^1.2.3",
     "axios": "^1.13.6",
     "react-router-dom": "^7.13.1"
   }

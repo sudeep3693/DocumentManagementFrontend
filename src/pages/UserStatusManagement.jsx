@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { getAdminAllUsersApi, getAdminPublishedUsersApi, updateUserStatusApi } from '../services/api';
 import { useToast } from '../context/ToastContext';
 import LoadingSpinner from '../components/LoadingSpinner';
+import NepaliDatePickerWrapper from '../components/NepaliDatePickerWrapper';
 
 const FILTER_TABS = [
   { key: 'all', label: 'All Users', icon: '👥' },
@@ -9,27 +10,26 @@ const FILTER_TABS = [
   { key: 'unpublished', label: 'Unpublished', icon: '🚫' },
 ];
 
-const formatDate = (dateStr) => {
-  if (!dateStr) return '—';
-  try {
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  } catch {
-    return dateStr;
+const formatDate = (dateObj) => {
+  if (!dateObj) return '—';
+  if (typeof dateObj === 'string') {
+    try {
+      return new Date(dateObj).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+    } catch {
+      return dateObj;
+    }
   }
+  return `${dateObj.bsDate || ''} ${dateObj.adDate ? `(${new Date(dateObj.adDate).toLocaleDateString()})` : ''}`.trim() || '—';
 };
 
-const toDateInputValue = (dateStr) => {
-  if (!dateStr) return '';
-  try {
-    const d = new Date(dateStr);
-    return d.toISOString().split('T')[0];
-  } catch {
-    return '';
-  }
+const toDateInputValue = (dateObj) => {
+  if (!dateObj) return '';
+  if (typeof dateObj === 'string') return dateObj;
+  return dateObj.bsDate || '';
 };
 
 const UserStatusManagement = () => {
@@ -87,14 +87,18 @@ const UserStatusManagement = () => {
 
     setSubmitting(true);
     try {
-      const activeUntilISO = editActiveUntil
-        ? new Date(editActiveUntil + 'T00:00:00').toISOString()
-        : null;
+      const activeUntilPayload = typeof editActiveUntil === 'object' ? {
+        bsDate: editActiveUntil.bsDate,
+        adDate: editActiveUntil.adDate ? new Date(editActiveUntil.adDate).toISOString() : null
+      } : {
+        bsDate: editActiveUntil || null,
+        adDate: null
+      };
 
       await updateUserStatusApi({
         userId: editingUser.userId,
         published: editPublished,
-        activeUntil: activeUntilISO,
+        activeUntil: activeUntilPayload,
       });
 
       toast.success('User status updated successfully');
@@ -242,14 +246,13 @@ const UserStatusManagement = () => {
 
               {/* Active Until Date */}
               <div className="form-group">
-                <label>Active Until</label>
-                <input
-                  type="date"
-                  value={editActiveUntil}
+                <label>Active Until (BS)</label>
+                <NepaliDatePickerWrapper
+                  name="editActiveUntil"
+                  value={typeof editActiveUntil === 'object' ? editActiveUntil.bsDate : editActiveUntil}
                   onChange={(e) => setEditActiveUntil(e.target.value)}
                   className="form-input"
                 />
-                <span className="form-hint">Time will be set to midnight (00:00)</span>
               </div>
             </div>
 

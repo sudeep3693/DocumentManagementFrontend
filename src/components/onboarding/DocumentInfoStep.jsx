@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getCodeValuesApi } from '../../services/api';
+import NepaliDatePickerWrapper from '../NepaliDatePickerWrapper';
 
 const CODE_DOCUMENT_TYPE = 58;
 
@@ -115,7 +116,7 @@ const DocumentInfoStep = ({ prefill, formData, onNext, onBack }) => {
             </div>
             <div className="form-group">
               <label>Issue Date *</label>
-              <input type="date" value={doc.documentIssueDate} onChange={(e) => handleChange(index, 'documentIssueDate', e.target.value)} />
+              <NepaliDatePickerWrapper name="documentIssueDate" value={doc.documentIssueDate?.bsDate || doc.documentIssueDate || ''} className="form-control" onChange={(e) => handleChange(index, 'documentIssueDate', e.target.value)} />
               {errors[index]?.documentIssueDate && <span className="form-error">{errors[index].documentIssueDate}</span>}
             </div>
           </div>

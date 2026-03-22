@@ -4,6 +4,7 @@ import { getAdminUserDetailsApi, acceptRejectUserApi, getRolesApi } from '../ser
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import LoadingSpinner from '../components/LoadingSpinner';
+import NepaliDatePickerWrapper from '../components/NepaliDatePickerWrapper';
 
 const UserDetailPage = () => {
   const { onboardingSessionId } = useParams();
@@ -40,9 +41,15 @@ const UserDetailPage = () => {
   }, [onboardingSessionId]);
 
   const handleAcceptReject = async (status) => {
-    if (status === 'ACCEPTED' && selectedRoles.length === 0) {
-      toast.error('Please select at least one role');
-      return;
+    if (status === 'ACCEPTED') {
+      if (selectedRoles.length === 0) {
+        toast.error('Please select at least one role');
+        return;
+      }
+      if (!activeUntil) {
+        toast.error('Please select an active until date (BS)');
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -50,7 +57,13 @@ const UserDetailPage = () => {
       await acceptRejectUserApi({
         companyInfoId: details?.companyInfoId || details?.companyDetails?.companyInfoId || 0,
         roles: selectedRoles,
-        activeUntil: activeUntil ? new Date(activeUntil + 'T12:00:00').toISOString() : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        activeUntil: typeof activeUntil === 'object' ? {
+          bsDate: activeUntil.bsDate,
+          adDate: activeUntil.adDate ? new Date(activeUntil.adDate).toISOString() : null
+        } : {
+          bsDate: activeUntil || null,
+          adDate: null
+        },
         status,
         acceptedBy: currentUser?.username || 'admin',
         message,
@@ -88,6 +101,12 @@ const UserDetailPage = () => {
   const docs = companyDetails?.documentInfo || [];
   const addr = companyDetails?.addressInfo || {};
   const person = companyDetails?.authorizedPersonInfo || {};
+
+  const formatDate = (dateObj) => {
+    if (!dateObj) return '—';
+    if (typeof dateObj === 'string') return dateObj;
+    return `${dateObj.bsDate || ''} ${dateObj.adDate ? `(${dateObj.adDate})` : ''}`.trim() || '—';
+  };
 
   return (
     <div className="page-content">
@@ -156,7 +175,7 @@ const UserDetailPage = () => {
                   <tr key={i}>
                     <td>{doc.documentType}</td>
                     <td>{doc.documentNumber || '—'}</td>
-                    <td>{doc.documentIssueDate || '—'}</td>
+                    <td>{formatDate(doc.documentIssueDate)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -232,7 +251,7 @@ const UserDetailPage = () => {
           </div>
           <div className="detail-item">
             <label>Citizenship Issued Date</label>
-            <span>{person.citizenshipIssuedDate || '—'}</span>
+            <span>{formatDate(person.citizenshipIssuedDate)}</span>
           </div>
         </div>
       </div>
@@ -303,12 +322,12 @@ const UserDetailPage = () => {
 
           {/* Active Until */}
           <div className="form-group">
-            <label>Active Until</label>
-            <input
-              type="date"
-              value={activeUntil}
+            <label>Active Until (BS) *</label>
+            <NepaliDatePickerWrapper
+              name="activeUntil"
+              value={typeof activeUntil === 'object' ? activeUntil.bsDate : activeUntil}
               onChange={(e) => setActiveUntil(e.target.value)}
-              className="form-input"
+              className="form-control"
             />
           </div>
 

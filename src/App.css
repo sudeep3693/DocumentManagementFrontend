@@ -714,7 +714,11 @@
 .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0 1.25rem;
+  gap: 1.25rem;
+}
+
+.form-grid .form-group {
+  margin-bottom: 0;
 }
 
 .form-grid-3 {
@@ -984,6 +988,8 @@
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  word-wrap: break-word;
+  word-break: break-word;
 }
 
 .detail-item label {

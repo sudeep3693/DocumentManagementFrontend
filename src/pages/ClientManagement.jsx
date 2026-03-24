@@ -152,6 +152,7 @@ const ClientManagement = () => {
                 <th>Membership ID</th>
                 <th>Name</th>
                 <th>Phone</th>
+                <th>Gender</th>
                 <th>Citizenship No</th>
                 <th>Membership Date</th>
                 <th>Status</th>
@@ -172,6 +173,7 @@ const ClientManagement = () => {
                     <td>{client.membershipId}</td>
                     <td>{client.fullNameEnglish || client.fullNameNepali}</td>
                     <td>{client.mobileNumber}</td>
+                    <td>{client.gender || '—'}</td>
                     <td>{client.citizenshipNumber}</td>
                     <td>{renderDate(client)}</td>
                     <td>

@@ -3,7 +3,7 @@ import { getCodeValuesApi } from '../../services/api';
 
 const CODE_COOPERATIVE_TYPE = 57;
 
-const CompanyInfoStep = ({ data, prefill, formData, onNext }) => {
+const CompanyInfoStep = ({ data, prefill, formData, onNext, isEditMode }) => {
   const [form, setForm] = useState({
     nameEnglish: '',
     nameNepali: '',
@@ -17,7 +17,19 @@ const CompanyInfoStep = ({ data, prefill, formData, onNext }) => {
 
   useEffect(() => {
     getCodeValuesApi(CODE_COOPERATIVE_TYPE)
-      .then(res => setCooperativeTypes(Array.isArray(res) ? res : (res?.content || res?.data || [])))
+      .then(res => {
+        const list = Array.isArray(res) ? res : (res?.content || res?.data || []);
+        setCooperativeTypes(list);
+
+        // Auto-map if cooperativeType is a label instead of an ID
+        setForm(prev => {
+          if (prev.cooperativeType && isNaN(prev.cooperativeType)) {
+            const match = list.find(t => t.codeValueOptional === prev.cooperativeType || t.codeValue === prev.cooperativeType);
+            if (match) return { ...prev, cooperativeType: String(match.id) };
+          }
+          return prev;
+        });
+      })
       .catch((err) => console.error('Failed to load cooperative types', err));
   }, []);
 
@@ -69,10 +81,17 @@ const CompanyInfoStep = ({ data, prefill, formData, onNext }) => {
     const errs = validate();
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
-    onNext({
-      ...form,
+    const payload = {
       cooperativeType: parseInt(form.cooperativeType, 10),
-    });
+      cooperativeRegisteredOffice: form.cooperativeRegisteredOffice,
+      email: form.email,
+      contactNumber: form.contactNumber,
+    };
+    if (!isEditMode) {
+      payload.nameEnglish = form.nameEnglish;
+      payload.nameNepali = form.nameNepali;
+    }
+    onNext(payload);
   };
 
   const handleChange = (e) => {
@@ -85,13 +104,13 @@ const CompanyInfoStep = ({ data, prefill, formData, onNext }) => {
       <h3>Cooperative Information</h3>
       <div className="form-grid">
         <div className="form-group">
-          <label htmlFor="nameEnglish">Name (English) *</label>
-          <input id="nameEnglish" name="nameEnglish" value={form.nameEnglish} onChange={handleChange} placeholder="e.g. Sahas Cooperative" />
+          <label htmlFor="nameEnglish">Name (English) {isEditMode ? '' : '*'}</label>
+          <input id="nameEnglish" name="nameEnglish" value={form.nameEnglish} onChange={handleChange} placeholder="e.g. Sahas Cooperative" disabled={isEditMode} />
           {errors.nameEnglish && <span className="form-error">{errors.nameEnglish}</span>}
         </div>
         <div className="form-group">
-          <label htmlFor="nameNepali">Name (Nepali) *</label>
-          <input id="nameNepali" name="nameNepali" value={form.nameNepali} onChange={handleChange} placeholder="e.g. सहस सहकारी" />
+          <label htmlFor="nameNepali">Name (Nepali) {isEditMode ? '' : '*'}</label>
+          <input id="nameNepali" name="nameNepali" value={form.nameNepali} onChange={handleChange} placeholder="e.g. सहस सहकारी" disabled={isEditMode} />
           {errors.nameNepali && <span className="form-error">{errors.nameNepali}</span>}
         </div>
         <div className="form-group">

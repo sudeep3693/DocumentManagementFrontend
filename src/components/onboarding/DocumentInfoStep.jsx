@@ -13,7 +13,17 @@ const DocumentInfoStep = ({ prefill, formData, onNext, onBack }) => {
 
   useEffect(() => {
     getCodeValuesApi(CODE_DOCUMENT_TYPE)
-      .then(res => setDocumentTypes(Array.isArray(res) ? res : (res?.content || res?.data || [])))
+      .then(res => {
+        const list = Array.isArray(res) ? res : (res?.content || res?.data || []);
+        setDocumentTypes(list);
+        setDocuments(prevDocs => prevDocs.map(doc => {
+          if (doc.documentType && isNaN(doc.documentType)) {
+            const match = list.find(t => t.codeValueOptional === doc.documentType || t.codeValue === doc.documentType);
+            if (match) return { ...doc, documentType: String(match.id) };
+          }
+          return doc;
+        }));
+      })
       .catch((err) => console.error('Failed to load document types', err));
   }, []);
 

@@ -13,6 +13,7 @@ const CODE_IDS = {
   ANCESTOR_TYPE: 55,
   SPOUSE_TYPE: 56,
   NOMINEE_RELATION: 1003,
+  GENDER: 1004,
 };
 
 const extractArray = (data) => {
@@ -24,6 +25,18 @@ const extractArray = (data) => {
   return [];
 };
 
+const calculateAge = (dateObj) => {
+  if (!dateObj || (!dateObj.adDate && !dateObj.bsDate)) return null;
+  if (!dateObj.adDate) return null;
+  const dob = new Date(dateObj.adDate);
+  const now = new Date();
+  let age = now.getFullYear() - dob.getFullYear();
+  const m = now.getMonth() - dob.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) {
+    age--;
+  }
+  return age;
+};
 
 const ClientDetailsPage = () => {
   const { id } = useParams();
@@ -43,11 +56,12 @@ const ClientDetailsPage = () => {
   const [spouseTypes, setSpouseTypes] = useState({});
   const [ancestorTypes, setAncestorTypes] = useState({});
   const [nomineeRelations, setNomineeRelations] = useState({});
+  const [genders, setGenders] = useState({});
 
   useEffect(() => {
     const fetchSelects = async () => {
       try {
-        const [provList, wardList, distList, munList, spouseList, ancestorList, nomineeList] = await Promise.all([
+        const [provList, wardList, distList, munList, spouseList, ancestorList, nomineeList, genderList] = await Promise.all([
           getCodeValuesApi(CODE_IDS.PROVINCE).then(extractArray),
           getCodeValuesApi(CODE_IDS.WARD).then(extractArray),
           getCodeValuesApi(CODE_IDS.DISTRICT).then(extractArray),
@@ -55,6 +69,7 @@ const ClientDetailsPage = () => {
           getCodeValuesApi(CODE_IDS.SPOUSE_TYPE).then(extractArray),
           getCodeValuesApi(CODE_IDS.ANCESTOR_TYPE).then(extractArray),
           getCodeValuesApi(CODE_IDS.NOMINEE_RELATION).then(extractArray),
+          getCodeValuesApi(CODE_IDS.GENDER).then(extractArray),
         ]);
         
         const arrToMap = (arr) => arr.reduce((acc, curr) => ({ ...acc, [curr.id]: curr.codeValueOptional || curr.codeValue }), {});
@@ -66,6 +81,7 @@ const ClientDetailsPage = () => {
         setSpouseTypes(arrToMap(spouseList));
         setAncestorTypes(arrToMap(ancestorList));
         setNomineeRelations(arrToMap(nomineeList));
+        setGenders(arrToMap(genderList));
       } catch (err) {
         console.error('Failed to load code values', err);
       }
@@ -104,6 +120,8 @@ const ClientDetailsPage = () => {
 
   const pAddr = client.addresses?.find(a => a.addressType === 'P');
   const tAddr = client.addresses?.find(a => a.addressType === 'T');
+  
+  const isMinor = client.dateOfBirth?.adDate ? calculateAge(client.dateOfBirth) < 16 : !!client.isMinor;
 
   const renderAddress = (addr) => {
     if (!addr) return <p>No Address Provided</p>;
@@ -163,6 +181,7 @@ const ClientDetailsPage = () => {
             <div className="detail-item"><strong>Name (English):</strong><br/>{client.fullNameEnglish}</div>
             <div className="detail-item"><strong>पूरा नाम (Nepali):</strong><br/>{client.fullNameNepali}</div>
             <div className="detail-item"><strong>Date of Birth (BS) / जन्म मिति:</strong><br/>{renderDate(client.dateOfBirth, client.dateOfBirthBs)}</div>
+            <div className="detail-item"><strong>Gender / लिङ्ग:</strong><br/>{genders[client.gender] || client.gender || '—'}</div>
             <div className="detail-item"><strong>Membership Date (BS) / सदस्यता मिति:</strong><br/>{renderDate(client.dateOfMembership, client.dateOfMembershipBs, client, 'membership')}</div>
             <div className="detail-item"><strong>Status / अवस्था:</strong><br/>
               <span className={`badge ${client.isActive ? 'badge-success' : 'badge-danger'}`}>
@@ -179,9 +198,9 @@ const ClientDetailsPage = () => {
             <h3 className="form-section-title">Identity & Shares</h3>
           </div>
           <div className="form-grid">
-            <div className="detail-item"><strong>{client.isMinor ? 'Date of Birth No / जन्म दर्ता नम्बर' : 'Citizenship No / नागरिकता नम्बर'}:</strong><br/>{client.citizenshipNumber}</div>
-            <div className="detail-item"><strong>{client.isMinor ? 'DOB Issue District / जन्म दर्ता जारी जिल्ला' : 'Issue District / जारी जिल्ला'}:</strong><br/>{districts[client.citizenshipIssueDistrict] || client.citizenshipIssueDistrict}</div>
-            <div className="detail-item"><strong>{client.isMinor ? 'DOB Issue Date (BS) / जन्म दर्ता जारी मिति' : 'Issue Date (BS) / जारी मिति'}:</strong><br/>{renderDate(client.citizenshipIssueDate, client.citizenshipIssueDateBs)}</div>
+            <div className="detail-item"><strong>{isMinor ? 'Date of Birth No / जन्म दर्ता नम्बर' : 'Citizenship No / नागरिकता नम्बर'}:</strong><br/>{client.citizenshipNumber}</div>
+            <div className="detail-item"><strong>{isMinor ? 'DOB Issue District / जन्म दर्ता जारी जिल्ला' : 'Issue District / जारी जिल्ला'}:</strong><br/>{districts[client.citizenshipIssueDistrict] || client.citizenshipIssueDistrict}</div>
+            <div className="detail-item"><strong>{isMinor ? 'DOB Issue Date (BS) / जन्म दर्ता जारी मिति' : 'Issue Date (BS) / जारी मिति'}:</strong><br/>{renderDate(client.citizenshipIssueDate, client.citizenshipIssueDateBs)}</div>
             <div className="detail-item"><strong>Share Amount / शेयर रकम:</strong><br/>NPR {client.shareAmount}</div>
             <div className="detail-item"><strong>Share Number / शेयर कित्ता:</strong><br/>{client.shareNumber}</div>
           </div>
@@ -235,3 +254,4 @@ const ClientDetailsPage = () => {
 };
 
 export default ClientDetailsPage;
+

@@ -42,6 +42,7 @@ const CODE_IDS = {
   ANCESTOR_TYPE: 55,
   SPOUSE_TYPE: 56,
   NOMINEE_RELATION: 1003,
+  GENDER: 1004,
 };
 
 const emptyAddress = {
@@ -61,6 +62,7 @@ const emptyForm = {
   shareNumber: '',
   fullNameNepali: '',
   fullNameEnglish: '',
+  gender: '',
   spouseType: '',
   spouseNameNepali: '',
   spouseNameEnglish: '',
@@ -113,6 +115,7 @@ const ClientFormPage = () => {
   const [ancestorTypes, setAncestorTypes] = useState([]);
   const [nomineeRelations, setNomineeRelations] = useState([]);
   const [allDistricts, setAllDistricts] = useState([]);
+  const [genders, setGenders] = useState([]);
 
   // Address Dropdown options
   const [provinces, setProvinces] = useState([]);
@@ -125,13 +128,14 @@ const ClientFormPage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [prov, wardData, sTypes, aTypes, aDistricts, nRels] = await Promise.all([
+        const [prov, wardData, sTypes, aTypes, aDistricts, nRels, gTypes] = await Promise.all([
           getCodeValuesApi(CODE_IDS.PROVINCE),
           getCodeValuesApi(CODE_IDS.WARD),
           getCodeValuesApi(CODE_IDS.SPOUSE_TYPE),
           getCodeValuesApi(CODE_IDS.ANCESTOR_TYPE),
           getCodeValuesApi(CODE_IDS.DISTRICT),
           getCodeValuesApi(CODE_IDS.NOMINEE_RELATION),
+          getCodeValuesApi(CODE_IDS.GENDER),
         ]);
         const provincesList = extractArray(prov);
         const wardsList = extractArray(wardData);
@@ -139,6 +143,7 @@ const ClientFormPage = () => {
         const ancestorTypesList = extractArray(aTypes);
         const allDistrictsList = extractArray(aDistricts);
         const nomineeRelationsList = extractArray(nRels);
+        const gendersList = extractArray(gTypes);
 
         setProvinces(provincesList);
         setWards(wardsList);
@@ -146,6 +151,7 @@ const ClientFormPage = () => {
         setAncestorTypes(ancestorTypesList);
         setAllDistricts(allDistrictsList);
         setNomineeRelations(nomineeRelationsList);
+        setGenders(gendersList);
 
         if (isEditing) {
           const data = await getClientByIdApi(id);
@@ -192,6 +198,7 @@ const ClientFormPage = () => {
           setForm({
             ...emptyForm,
             ...data,
+            gender: resolve(gendersList, data.gender),
             spouseType: resolve(spouseTypesList, data.spouseType),
             ancestorType: resolve(ancestorTypesList, data.ancestorType),
             nomineesRelation: resolve(nomineeRelationsList, data.nomineesRelation),
@@ -301,6 +308,7 @@ const ClientFormPage = () => {
     if (!form.membershipId) newErrs.membershipId = 'Required';
     if (!form.fullNameNepali) newErrs.fullNameNepali = 'Required';
     if (!form.fullNameEnglish) newErrs.fullNameEnglish = 'Required';
+    if (!form.gender) newErrs.gender = 'Required';
     if (!form.fatherNameEnglish) newErrs.fatherNameEnglish = 'Required';
     if (!form.fatherNameNepali) newErrs.fatherNameNepali = 'Required';
     if (!form.ancestorType) newErrs.ancestorType = 'Required';
@@ -347,6 +355,7 @@ const ClientFormPage = () => {
     payload.shareNumber = form.shareNumber ? Number(nepaliToEnglishDigits(String(form.shareNumber))) : null;
     
     // Parse Long fields
+    payload.gender = form.gender ? Number(form.gender) : null;
     payload.spouseType = form.spouseType ? Number(form.spouseType) : null;
     payload.ancestorType = form.ancestorType ? Number(form.ancestorType) : null;
     payload.nomineesRelation = form.nomineesRelation ? Number(form.nomineesRelation) : null;
@@ -426,6 +435,14 @@ const ClientFormPage = () => {
               <label>Full Name (English) *</label>
               <input name="fullNameEnglish" value={form.fullNameEnglish} onChange={handleChange} />
               {errors.fullNameEnglish && <span className="form-error">{errors.fullNameEnglish}</span>}
+            </div>
+            <div className="form-group">
+              <label>Gender / लिङ्ग *</label>
+              <select name="gender" value={form.gender} onChange={handleChange}>
+                <option value="">-- Select --</option>
+                {genders.map(g => <option key={g.id} value={g.id}>{g.codeValueOptional || g.codeValue}</option>)}
+              </select>
+              {errors.gender && <span className="form-error">{errors.gender}</span>}
             </div>
             <div className="form-group">
               <label>जन्म मिति / Date of Birth (BS) *</label>

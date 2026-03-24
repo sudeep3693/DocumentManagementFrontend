@@ -51,19 +51,49 @@ const AddressInfoStep = ({ prefill, formData, data, onNext, onBack }) => {
   // Default fetch across non-dependent entities
   useEffect(() => {
     getCodeValuesApi(CODE_PROVINCE)
-      .then(res => setProvinces(extractArray(res)))
+      .then(res => {
+        const list = extractArray(res);
+        setProvinces(list);
+        setAddress((prev) => {
+          if (prev.province && isNaN(prev.province)) {
+            const match = list.find((p) => p.codeValueOptional === prev.province || p.codeValue === prev.province);
+            if (match) return { ...prev, province: String(match.id) };
+          }
+          return prev;
+        });
+      })
       .catch((err) => console.error('Failed to load provinces', err));
 
     getCodeValuesApi(CODE_WARD)
-      .then(res => setWards(extractArray(res)))
+      .then(res => {
+        const list = extractArray(res);
+        setWards(list);
+        setAddress((prev) => {
+          if (prev.wardNo && isNaN(prev.wardNo)) {
+            const match = list.find((w) => w.codeValueOptional === prev.wardNo || w.codeValue === prev.wardNo);
+            if (match) return { ...prev, wardNo: String(match.id) };
+          }
+          return prev;
+        });
+      })
       .catch((err) => console.error('Failed to load wards', err));
   }, []);
 
   // Fetch cascading logic
   useEffect(() => {
-    if (address.province) {
+    if (address.province && !isNaN(address.province)) {
       getCodeValuesApi(CODE_DISTRICT, address.province)
-        .then(res => setDistricts(extractArray(res)))
+        .then(res => {
+          const list = extractArray(res);
+          setDistricts(list);
+          setAddress((prev) => {
+            if (prev.district && isNaN(prev.district)) {
+              const match = list.find((d) => d.codeValueOptional === prev.district || d.codeValue === prev.district);
+              if (match) return { ...prev, district: String(match.id) };
+            }
+            return prev;
+          });
+        })
         .catch(err => console.error('Failed to load districts', err));
     } else {
       setDistricts([]);
@@ -71,9 +101,19 @@ const AddressInfoStep = ({ prefill, formData, data, onNext, onBack }) => {
   }, [address.province]);
 
   useEffect(() => {
-    if (address.district) {
+    if (address.district && !isNaN(address.district)) {
       getCodeValuesApi(CODE_MUNI, address.district)
-        .then(res => setMunicipalities(extractArray(res)))
+        .then(res => {
+          const list = extractArray(res);
+          setMunicipalities(list);
+          setAddress((prev) => {
+            if (prev.municipality && isNaN(prev.municipality)) {
+              const match = list.find((m) => m.codeValueOptional === prev.municipality || m.codeValue === prev.municipality);
+              if (match) return { ...prev, municipality: String(match.id) };
+            }
+            return prev;
+          });
+        })
         .catch(err => console.error('Failed to load municipalities', err));
     } else {
       setMunicipalities([]);

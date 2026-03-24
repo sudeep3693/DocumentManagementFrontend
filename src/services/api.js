@@ -167,3 +167,20 @@ export const updateProfileApi = async (userId, details) => {
   const { password: _, ...userData } = updated;
   return userData;
 };
+
+// ==================== AUTHENTICATED USER PROFILE (Real Backend) ====================
+
+export const getUserProfileApi = async () => {
+  const response = await axiosInstance.get('/api/v1/users/authenticated/profile');
+  return response.data;
+};
+
+export const updateUserProfileApi = async (data) => {
+  const response = await axiosInstance.put('/api/v1/users/authenticated/profile', data);
+  return response.data;
+};
+
+export const changeUserPasswordApi = async (data) => {
+  const response = await axiosInstance.post('/api/v1/users/authenticated/change-password', data);
+  return response.data;
+};

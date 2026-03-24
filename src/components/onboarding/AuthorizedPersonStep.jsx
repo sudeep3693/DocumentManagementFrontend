@@ -28,7 +28,17 @@ const AuthorizedPersonStep = ({ prefill, formData, onNext, onBack }) => {
 
   useEffect(() => {
     getCodeValuesApi(CODE_DISTRICT)
-      .then(res => setDistricts(extractArray(res)))
+      .then(res => {
+        const list = extractArray(res);
+        setDistricts(list);
+        setForm(prev => {
+          if (prev.citizenshipIssuedDistrict && isNaN(prev.citizenshipIssuedDistrict)) {
+            const match = list.find(d => d.codeValueOptional === prev.citizenshipIssuedDistrict || d.codeValue === prev.citizenshipIssuedDistrict);
+            if (match) return { ...prev, citizenshipIssuedDistrict: String(match.id) };
+          }
+          return prev;
+        });
+      })
       .catch(err => console.error('Failed to load districts', err));
   }, []);
 

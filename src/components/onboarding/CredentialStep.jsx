@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import PasswordStrengthIndicator, { validatePassword } from '../PasswordStrengthIndicator';
 
 const CredentialStep = ({ onNext, onBack }) => {
   const [form, setForm] = useState({
@@ -12,7 +13,7 @@ const CredentialStep = ({ onNext, onBack }) => {
     const errs = {};
     if (!form.username.trim()) errs.username = 'Username is required';
     if (!form.password) errs.password = 'Password is required';
-    else if (form.password.length < 8) errs.password = 'Password must be at least 8 characters';
+    else if (!validatePassword(form.password)) errs.password = 'Password does not meet requirements';
     if (!form.repeatPassword) errs.repeatPassword = 'Please confirm your password';
     else if (form.password !== form.repeatPassword) errs.repeatPassword = 'Passwords do not match';
     return errs;
@@ -48,9 +49,6 @@ const CredentialStep = ({ onNext, onBack }) => {
         <div className="form-group">
           <label htmlFor="password">Password *</label>
           <input id="password" name="password" type="password" value={form.password} onChange={handleChange} placeholder="Enter password" />
-          <small className="form-hint" style={{ color: '#666', marginTop: '4px', display: 'block', fontSize: '0.85em', lineHeight: '1.4' }}>
-            Note: Password must contain at least 8 characters, including a capital letter, a lowercase letter, and a number. It should not contain the company name.
-          </small>
           {errors.password && <span className="form-error">{errors.password}</span>}
         </div>
         <div className="form-group">
@@ -58,6 +56,11 @@ const CredentialStep = ({ onNext, onBack }) => {
           <input id="repeatPassword" name="repeatPassword" type="password" value={form.repeatPassword} onChange={handleChange} placeholder="Repeat password" />
           {errors.repeatPassword && <span className="form-error">{errors.repeatPassword}</span>}
         </div>
+        <PasswordStrengthIndicator
+          password={form.password}
+          confirmPassword={form.repeatPassword}
+          showMatch={true}
+        />
       </div>
       <div className="step-actions">
         <button type="button" className="btn btn-outline" onClick={onBack}>← Back</button>

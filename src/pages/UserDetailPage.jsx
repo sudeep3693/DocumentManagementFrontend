@@ -31,8 +31,8 @@ const UserDetailPage = () => {
         ]);
         setDetails(detailsData);
         setRoles(Array.isArray(rolesData) ? rolesData : []);
-      } catch {
-        toast.error('Failed to load user details');
+      } catch (err) {
+        toast.error(err.message || 'Failed to load user details');
       } finally {
         setLoading(false);
       }
@@ -70,8 +70,8 @@ const UserDetailPage = () => {
       });
       toast.success(`User ${status === 'ACCEPTED' ? 'accepted' : 'rejected'} successfully`);
       navigate('/admin/users');
-    } catch {
-      toast.error(`Failed to ${status === 'ACCEPTED' ? 'accept' : 'reject'} user`);
+    } catch (err) {
+      toast.error(err.message || `Failed to ${status === 'ACCEPTED' ? 'accept' : 'reject'} user`);
     } finally {
       setSubmitting(false);
     }

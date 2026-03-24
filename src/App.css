@@ -1334,3 +1334,293 @@
   margin-left: 0.5rem;
 }
 
+/* ========== Nepali Date Picker - Premium Styling ========== */
+.nepali-datepicker-wrapper {
+  width: 100%;
+  position: relative;
+}
+
+.nepali-datepicker-input-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.nepali-datepicker-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6366f1;
+  z-index: 2;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.3s;
+}
+
+.nepali-datepicker-input-container:hover .nepali-datepicker-icon {
+  color: #4f46e5;
+}
+
+/* Input field styling */
+.nepali-datepicker-input-container input {
+  width: 100% !important;
+  padding: 0.65rem 0.85rem 0.65rem 2.35rem !important;
+  border: 2px solid #e2e8f0 !important;
+  border-radius: 10px !important;
+  font-size: 0.9rem !important;
+  color: #1e293b !important;
+  background: linear-gradient(145deg, #ffffff 0%, #f5f7ff 100%) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  font-family: inherit !important;
+  cursor: pointer !important;
+  box-sizing: border-box !important;
+  letter-spacing: 0.02em !important;
+  font-weight: 500 !important;
+}
+
+.nepali-datepicker-input-container input:hover {
+  border-color: #a5b4fc !important;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.08), 0 2px 8px rgba(99, 102, 241, 0.1) !important;
+  background: linear-gradient(145deg, #ffffff 0%, #eef2ff 100%) !important;
+}
+
+.nepali-datepicker-input-container input:focus {
+  outline: none !important;
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15), 0 4px 16px rgba(99, 102, 241, 0.12) !important;
+  background: #ffffff !important;
+}
+
+/* Calendar Popup Container */
+.nepali-datepicker-wrapper div[style*="position"] > div[class] {
+  border-radius: 16px !important;
+  box-shadow:
+    0 20px 60px rgba(99, 102, 241, 0.18),
+    0 8px 24px rgba(0, 0, 0, 0.08),
+    0 0 0 1px rgba(99, 102, 241, 0.08) !important;
+  overflow: hidden !important;
+  animation: dpSlideIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+@keyframes dpSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Calendar Header (month/year navigation bar) */
+._1Op28 {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 50%, #4338ca 100%) !important;
+  padding: 12px 14px !important;
+  color: #fff !important;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3) !important;
+}
+
+._1Op28 span,
+._1Op28 div,
+._1Op28 p {
+  color: #fff !important;
+  font-weight: 600 !important;
+}
+
+/* Navigation arrows */
+._3fmCl {
+  border-color: rgba(255, 255, 255, 0.9) !important;
+  border-width: 0 2.5px 2.5px 0 !important;
+  padding: 4px !important;
+  opacity: 0.8;
+  transition: all 0.2s ease !important;
+}
+
+._3fmCl:hover {
+  opacity: 1 !important;
+  border-color: #fff !important;
+}
+
+._1ydFT:hover {
+  transform: scale(1.2) rotate(135deg) !important;
+}
+
+._1Pw8c:hover {
+  transform: scale(1.2) rotate(-45deg) !important;
+}
+
+/* Month/Year dropdowns in header */
+._2aNF9 {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: #fff !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.3) !important;
+  border-radius: 8px !important;
+  padding: 5px 10px !important;
+  font-size: 14px !important;
+  cursor: pointer !important;
+  font-weight: 600 !important;
+  transition: all 0.2s ease !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
+
+._2aNF9:hover {
+  background: rgba(255, 255, 255, 0.25) !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+._2aNF9:focus {
+  outline: none !important;
+  background: rgba(255, 255, 255, 0.3) !important;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3) !important;
+}
+
+._2aNF9 option {
+  color: #1e293b !important;
+  background: #fff !important;
+  font-weight: 500 !important;
+  padding: 4px 8px !important;
+}
+
+/* Weekday headers row */
+._d8Qqp {
+  background: linear-gradient(180deg, #f0f0ff 0%, #e8e8ff 100%) !important;
+  border-bottom: 2px solid #e0e7ff !important;
+  padding: 8px 0 !important;
+}
+
+._1yGdK {
+  color: #6366f1 !important;
+  font-weight: 700 !important;
+  font-size: 12px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+}
+
+/* Date cells container */
+._1hh2I {
+  background: #fff !important;
+  padding: 6px !important;
+  gap: 2px !important;
+}
+
+/* Individual date cells */
+._249_g {
+  border-radius: 10px !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  font-weight: 500 !important;
+  color: #334155 !important;
+  position: relative !important;
+}
+
+._249_g:hover {
+  background: linear-gradient(145deg, #eef2ff, #e0e7ff) !important;
+  color: #4338ca !important;
+  transform: scale(1.1) !important;
+  cursor: pointer !important;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15) !important;
+}
+
+/* Empty/null cells */
+._3zttl {
+  cursor: default !important;
+}
+
+._3zttl:hover {
+  background: transparent !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Today's date circle */
+._1oebL {
+  color: #6366f1 !important;
+  font-weight: 800 !important;
+  border: 2px solid #6366f1 !important;
+  border-radius: 10px !important;
+  background: rgba(99, 102, 241, 0.06) !important;
+}
+
+._1oebL:hover {
+  background: #6366f1 !important;
+  color: #fff !important;
+  border-color: #6366f1 !important;
+}
+
+/* Today highlight (theme-specific) */
+._WrIdy {
+  color: #6366f1 !important;
+  font-weight: 800 !important;
+}
+
+._WrIdy:hover {
+  background: #6366f1 !important;
+  color: #fff !important;
+}
+
+/* Selected date */
+._FsLy_,
+._1ImcB {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%) !important;
+  color: #fff !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4), 0 0 0 2px rgba(99, 102, 241, 0.1) !important;
+  border-radius: 10px !important;
+  border: none !important;
+}
+
+._FsLy_:hover,
+._1ImcB:hover {
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%) !important;
+  color: #fff !important;
+  transform: scale(1.12) !important;
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.45) !important;
+}
+
+/* Disabled dates */
+._1EpF_,
+._3_2T4 {
+  color: #d1d5db !important;
+  opacity: 0.4 !important;
+}
+
+._1EpF_:hover,
+._3_2T4:hover {
+  background: transparent !important;
+  color: #d1d5db !important;
+  transform: none !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+}
+
+/* Theme overrides for blue theme (date/null hover, today, selected) */
+._2wmIR:hover,
+._3EzT1:hover {
+  background: linear-gradient(145deg, #eef2ff, #e0e7ff) !important;
+  color: #4338ca !important;
+}
+
+._3gFNc {
+  color: #6366f1 !important;
+  font-weight: 800 !important;
+}
+
+._2nANS {
+  background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
+  color: #fff !important;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4) !important;
+}
+
+._3gFNc:hover,
+._2nANS:hover {
+  background: linear-gradient(135deg, #4f46e5, #4338ca) !important;
+  color: #fff !important;
+}
+
+

@@ -5,6 +5,35 @@ import { addClientApi, updateClientApi, getClientByIdApi, getCodeValuesApi } fro
 import './ClientLayout.css';
 import NepaliDatePickerWrapper from '../components/NepaliDatePickerWrapper';
 
+// Nepali numeral helpers
+const NEPALI_DIGITS = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
+
+const nepaliToEnglishDigits = (str) => {
+  if (!str || typeof str !== 'string') return str;
+  return str.replace(/[०-९]/g, (ch) => NEPALI_DIGITS.indexOf(ch).toString());
+};
+
+// Validate that input only contains English digits, Nepali digits, and optionally a decimal point
+const isValidNepaliEnglishNumeral = (val, allowDecimal = false) => {
+  if (!val) return true;
+  const pattern = allowDecimal ? /^[0-9०-९.]+$/ : /^[0-9०-९]+$/;
+  return pattern.test(val);
+};
+
+const calculateAge = (dateObj) => {
+  if (!dateObj || (!dateObj.adDate && !dateObj.bsDate)) return null;
+  // Use adDate if available. If somehow only string is present, returning null allows fallback behavior.
+  if (!dateObj.adDate) return null;
+  const dob = new Date(dateObj.adDate);
+  const now = new Date();
+  let age = now.getFullYear() - dob.getFullYear();
+  const m = now.getMonth() - dob.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) {
+    age--;
+  }
+  return age;
+};
+
 const CODE_IDS = {
   PROVINCE: 1001,
   DISTRICT: 1002,
@@ -12,6 +41,7 @@ const CODE_IDS = {
   WARD: 2,
   ANCESTOR_TYPE: 55,
   SPOUSE_TYPE: 56,
+  NOMINEE_RELATION: 1003,
 };
 
 const emptyAddress = {
@@ -76,9 +106,12 @@ const ClientFormPage = () => {
   const [loading, setLoading] = useState(isEditing);
   const [saving, setSaving] = useState(false);
 
+  const isMinor = form.dateOfBirthBs?.adDate ? calculateAge(form.dateOfBirthBs) < 16 : false;
+
   // General Dropdown options
   const [spouseTypes, setSpouseTypes] = useState([]);
   const [ancestorTypes, setAncestorTypes] = useState([]);
+  const [nomineeRelations, setNomineeRelations] = useState([]);
   const [allDistricts, setAllDistricts] = useState([]);
 
   // Address Dropdown options
@@ -92,24 +125,27 @@ const ClientFormPage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [prov, wardData, sTypes, aTypes, aDistricts] = await Promise.all([
+        const [prov, wardData, sTypes, aTypes, aDistricts, nRels] = await Promise.all([
           getCodeValuesApi(CODE_IDS.PROVINCE),
           getCodeValuesApi(CODE_IDS.WARD),
           getCodeValuesApi(CODE_IDS.SPOUSE_TYPE),
           getCodeValuesApi(CODE_IDS.ANCESTOR_TYPE),
           getCodeValuesApi(CODE_IDS.DISTRICT),
+          getCodeValuesApi(CODE_IDS.NOMINEE_RELATION),
         ]);
         const provincesList = extractArray(prov);
         const wardsList = extractArray(wardData);
         const spouseTypesList = extractArray(sTypes);
         const ancestorTypesList = extractArray(aTypes);
         const allDistrictsList = extractArray(aDistricts);
+        const nomineeRelationsList = extractArray(nRels);
 
         setProvinces(provincesList);
         setWards(wardsList);
         setSpouseTypes(spouseTypesList);
         setAncestorTypes(ancestorTypesList);
         setAllDistricts(allDistrictsList);
+        setNomineeRelations(nomineeRelationsList);
 
         if (isEditing) {
           const data = await getClientByIdApi(id);
@@ -153,12 +189,12 @@ const ClientFormPage = () => {
             if (tempP) pAddr = (await loadAddressCodeIds(tempP)) || pAddr;
             if (tempT) tAddr = (await loadAddressCodeIds(tempT)) || tAddr;
           }
-          
           setForm({
             ...emptyForm,
             ...data,
             spouseType: resolve(spouseTypesList, data.spouseType),
             ancestorType: resolve(ancestorTypesList, data.ancestorType),
+            nomineesRelation: resolve(nomineeRelationsList, data.nomineesRelation),
             citizenshipIssueDistrict: resolve(allDistrictsList, data.citizenshipIssueDistrict),
             dateOfBirthBs: data.dateOfBirth || null,
             citizenshipIssueDateBs: data.citizenshipIssueDate || null,
@@ -169,7 +205,7 @@ const ClientFormPage = () => {
       } catch (err) {
         console.error('Failed to load data', err);
         if (isEditing) {
-          toast.error('Failed to load client details');
+          toast.error(err.message || 'Failed to load client details');
           navigate('/clients');
         }
       } finally {
@@ -226,7 +262,15 @@ const ClientFormPage = () => {
   const handleAddressChange = (index, field, value) => {
     setForm(prev => {
       const newAddresses = [...prev.addresses];
-      const parsedValue = ['province', 'district', 'municipality', 'wardNo', 'houseNo'].includes(field) ? (value ? Number(value) : '') : value;
+      let parsedValue;
+      if (field === 'houseNo') {
+        // houseNo accepts Nepali/English numerals as string
+        parsedValue = value;
+      } else if (['province', 'district', 'municipality', 'wardNo'].includes(field)) {
+        parsedValue = value ? Number(value) : '';
+      } else {
+        parsedValue = value;
+      }
       newAddresses[index] = { ...newAddresses[index], [field]: parsedValue };
       if (field === 'province') {
         newAddresses[index].district = '';
@@ -269,6 +313,14 @@ const ClientFormPage = () => {
     if (!form.dateOfMembershipBs) newErrs.dateOfMembershipBs = 'Required';
     if (!form.mobileNumber) newErrs.mobileNumber = 'Required';
 
+    if (isMinor) {
+      if (!form.guardiansNameNepali) newErrs.guardiansNameNepali = 'Required';
+      if (!form.guardiansNameEnglish) newErrs.guardiansNameEnglish = 'Required';
+      if (!form.nomineesNameNepali) newErrs.nomineesNameNepali = 'Required';
+      if (!form.nomineesNameEnglish) newErrs.nomineesNameEnglish = 'Required';
+      if (!form.nomineesRelation) newErrs.nomineesRelation = 'Required';
+    }
+
     form.addresses.forEach((addr, i) => {
       if (!addr.province) newErrs[`address_${i}_province`] = 'Required';
       if (!addr.district) newErrs[`address_${i}_district`] = 'Required';
@@ -290,8 +342,9 @@ const ClientFormPage = () => {
 
     setSaving(true);
     const payload = { ...form };
-    payload.shareAmount = form.shareAmount ? Number(form.shareAmount) : null;
-    payload.shareNumber = form.shareNumber ? Number(form.shareNumber) : null;
+    // Convert Nepali digits to English before parsing as Number
+    payload.shareAmount = form.shareAmount ? Number(nepaliToEnglishDigits(String(form.shareAmount))) : null;
+    payload.shareNumber = form.shareNumber ? Number(nepaliToEnglishDigits(String(form.shareNumber))) : null;
     
     // Parse Long fields
     payload.spouseType = form.spouseType ? Number(form.spouseType) : null;
@@ -329,7 +382,7 @@ const ClientFormPage = () => {
       }
       navigate('/clients');
     } catch (err) {
-      toast.error('Failed to save client: ' + (err.response?.data?.message || err.message));
+      toast.error(err.message || 'Failed to save client');
     } finally {
       setSaving(false);
     }
@@ -356,12 +409,12 @@ const ClientFormPage = () => {
           <div className="form-grid">
             <div className="form-group">
               <label>Account Number *</label>
-              <input name="accountNumber" value={form.accountNumber} onChange={handleChange} />
+              <input name="accountNumber" value={form.accountNumber} onChange={handleChange} disabled={isEditing} />
               {errors.accountNumber && <span className="form-error">{errors.accountNumber}</span>}
             </div>
             <div className="form-group">
               <label>Membership ID *</label>
-              <input name="membershipId" value={form.membershipId} onChange={handleChange} />
+              <input name="membershipId" value={form.membershipId} onChange={handleChange} disabled={isEditing} />
               {errors.membershipId && <span className="form-error">{errors.membershipId}</span>}
             </div>
             <div className="form-group">
@@ -404,11 +457,11 @@ const ClientFormPage = () => {
           <div className="form-grid">
             <div className="form-group">
               <label>Share Amount / शेयर रकम</label>
-              <input type="number" name="shareAmount" value={form.shareAmount} onChange={handleChange} />
+              <input type="text" name="shareAmount" value={form.shareAmount} onChange={(e) => { if (isValidNepaliEnglishNumeral(e.target.value, true)) handleChange(e); }} placeholder="e.g. 400 or ४००" />
             </div>
             <div className="form-group">
               <label>Share Number / शेयर कित्ता</label>
-              <input type="number" name="shareNumber" value={form.shareNumber} onChange={handleChange} />
+              <input type="text" name="shareNumber" value={form.shareNumber} onChange={(e) => { if (isValidNepaliEnglishNumeral(e.target.value)) handleChange(e); }} placeholder="e.g. 4 or ४" />
             </div>
           </div>
         </div>
@@ -420,12 +473,12 @@ const ClientFormPage = () => {
           </div>
           <div className="form-grid">
             <div className="form-group">
-              <label>Citizenship Number / नागरिकता नम्बर *</label>
+              <label>{isMinor ? 'Date of Birth Number / जन्म दर्ता नम्बर *' : 'Citizenship Number / नागरिकता नम्बर *'}</label>
               <input name="citizenshipNumber" value={form.citizenshipNumber} onChange={handleChange} />
               {errors.citizenshipNumber && <span className="form-error">{errors.citizenshipNumber}</span>}
             </div>
             <div className="form-group">
-              <label>Issue District / जारी जिल्ला *</label>
+              <label>{isMinor ? 'DOB Issue District / जन्म दर्ता जारी जिल्ला *' : 'Issue District / जारी जिल्ला *'}</label>
               <select name="citizenshipIssueDistrict" value={form.citizenshipIssueDistrict} onChange={handleChange}>
                 <option value="">-- Select District --</option>
                 {allDistricts.map(d => <option key={d.id} value={d.id}>{d.codeValueOptional || d.codeValue}</option>)}
@@ -433,7 +486,7 @@ const ClientFormPage = () => {
               {errors.citizenshipIssueDistrict && <span className="form-error">{errors.citizenshipIssueDistrict}</span>}
             </div>
             <div className="form-group">
-              <label>Issue Date / जारी मिति (BS) *</label>
+              <label>{isMinor ? 'DOB Issue Date / जन्म दर्ता जारी मिति (BS) *' : 'Issue Date / जारी मिति (BS) *'}</label>
               <NepaliDatePickerWrapper name="citizenshipIssueDateBs" value={form.citizenshipIssueDateBs?.bsDate || form.citizenshipIssueDateBs || ''} className="form-control" onChange={handleChange} />
               {errors.citizenshipIssueDateBs && <span className="form-error">{errors.citizenshipIssueDateBs}</span>}
             </div>
@@ -501,24 +554,32 @@ const ClientFormPage = () => {
           </div>
           <div className="form-grid">
             <div className="form-group">
-              <label>हकवालाको नाम (Nominee Name Nepali)</label>
+              <label>हकवालाको नाम (Nominee Name Nepali) {isMinor && '*'}</label>
               <input name="nomineesNameNepali" value={form.nomineesNameNepali} onChange={handleChange} />
+              {errors.nomineesNameNepali && <span className="form-error">{errors.nomineesNameNepali}</span>}
             </div>
             <div className="form-group">
-              <label>Nominee Name (English)</label>
+              <label>Nominee Name (English) {isMinor && '*'}</label>
               <input name="nomineesNameEnglish" value={form.nomineesNameEnglish} onChange={handleChange} />
+              {errors.nomineesNameEnglish && <span className="form-error">{errors.nomineesNameEnglish}</span>}
             </div>
             <div className="form-group">
-              <label>Nominee Relation (हकवालाको नाता ID)</label>
-              <input name="nomineesRelation" value={form.nomineesRelation} onChange={handleChange} placeholder="e.g. 52" />
+              <label>Nominee Relation (हकवालाको नाता) {isMinor && '*'}</label>
+              <select name="nomineesRelation" value={form.nomineesRelation} onChange={handleChange}>
+                <option value="">-- Select --</option>
+                {nomineeRelations.map(n => <option key={n.id} value={n.id}>{n.codeValueOptional || n.codeValue}</option>)}
+              </select>
+              {errors.nomineesRelation && <span className="form-error">{errors.nomineesRelation}</span>}
             </div>
             <div className="form-group">
-              <label>संरक्षकको नाम (Guardian Name Nepali)</label>
+              <label>संरक्षकको नाम (Guardian Name Nepali) {isMinor && '*'}</label>
               <input name="guardiansNameNepali" value={form.guardiansNameNepali} onChange={handleChange} />
+              {errors.guardiansNameNepali && <span className="form-error">{errors.guardiansNameNepali}</span>}
             </div>
             <div className="form-group">
-              <label>Guardian Name (English)</label>
+              <label>Guardian Name (English) {isMinor && '*'}</label>
               <input name="guardiansNameEnglish" value={form.guardiansNameEnglish} onChange={handleChange} />
+              {errors.guardiansNameEnglish && <span className="form-error">{errors.guardiansNameEnglish}</span>}
             </div>
           </div>
         </div>
@@ -568,7 +629,7 @@ const ClientFormPage = () => {
             </div>
             <div className="form-group">
               <label>House No / घर नं</label>
-              <input type="number" value={form.addresses[0].houseNo} onChange={(e) => handleAddressChange(0, 'houseNo', e.target.value)} />
+              <input type="text" value={form.addresses[0].houseNo} onChange={(e) => { if (isValidNepaliEnglishNumeral(e.target.value)) handleAddressChange(0, 'houseNo', e.target.value); }} placeholder="e.g. ४४" />
             </div>
           </div>
         </div>
@@ -621,7 +682,7 @@ const ClientFormPage = () => {
             </div>
             <div className="form-group">
               <label>House No / घर नं</label>
-              <input type="number" value={form.addresses[1].houseNo} onChange={(e) => handleAddressChange(1, 'houseNo', e.target.value)} />
+              <input type="text" value={form.addresses[1].houseNo} onChange={(e) => { if (isValidNepaliEnglishNumeral(e.target.value)) handleAddressChange(1, 'houseNo', e.target.value); }} placeholder="e.g. ४४" />
             </div>
           </div>
         </div>

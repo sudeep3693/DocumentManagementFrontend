@@ -48,6 +48,9 @@ const CredentialStep = ({ onNext, onBack }) => {
         <div className="form-group">
           <label htmlFor="password">Password *</label>
           <input id="password" name="password" type="password" value={form.password} onChange={handleChange} placeholder="Enter password" />
+          <small className="form-hint" style={{ color: '#666', marginTop: '4px', display: 'block', fontSize: '0.85em', lineHeight: '1.4' }}>
+            Note: Password must contain at least 8 characters, including a capital letter, a lowercase letter, and a number. It should not contain the company name.
+          </small>
           {errors.password && <span className="form-error">{errors.password}</span>}
         </div>
         <div className="form-group">

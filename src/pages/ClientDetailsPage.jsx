@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
-import { getClientByIdApi, getCodeValuesApi } from '../services/api';
+import { getClientByIdApi, getCodeValuesApi, enableClientApi } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import './ClientLayout.css';
 
@@ -12,6 +12,7 @@ const CODE_IDS = {
   WARD: 2,
   ANCESTOR_TYPE: 55,
   SPOUSE_TYPE: 56,
+  NOMINEE_RELATION: 1003,
 };
 
 const extractArray = (data) => {
@@ -41,17 +42,19 @@ const ClientDetailsPage = () => {
   // Entity lookup dictionaries
   const [spouseTypes, setSpouseTypes] = useState({});
   const [ancestorTypes, setAncestorTypes] = useState({});
+  const [nomineeRelations, setNomineeRelations] = useState({});
 
   useEffect(() => {
     const fetchSelects = async () => {
       try {
-        const [provList, wardList, distList, munList, spouseList, ancestorList] = await Promise.all([
+        const [provList, wardList, distList, munList, spouseList, ancestorList, nomineeList] = await Promise.all([
           getCodeValuesApi(CODE_IDS.PROVINCE).then(extractArray),
           getCodeValuesApi(CODE_IDS.WARD).then(extractArray),
           getCodeValuesApi(CODE_IDS.DISTRICT).then(extractArray),
           getCodeValuesApi(CODE_IDS.MUNICIPALITY).then(extractArray),
           getCodeValuesApi(CODE_IDS.SPOUSE_TYPE).then(extractArray),
           getCodeValuesApi(CODE_IDS.ANCESTOR_TYPE).then(extractArray),
+          getCodeValuesApi(CODE_IDS.NOMINEE_RELATION).then(extractArray),
         ]);
         
         const arrToMap = (arr) => arr.reduce((acc, curr) => ({ ...acc, [curr.id]: curr.codeValueOptional || curr.codeValue }), {});
@@ -62,6 +65,7 @@ const ClientDetailsPage = () => {
         setMunicipalities(arrToMap(munList));
         setSpouseTypes(arrToMap(spouseList));
         setAncestorTypes(arrToMap(ancestorList));
+        setNomineeRelations(arrToMap(nomineeList));
       } catch (err) {
         console.error('Failed to load code values', err);
       }
@@ -75,7 +79,7 @@ const ClientDetailsPage = () => {
         const data = await getClientByIdApi(id);
         setClient(data);
       } catch (err) {
-        toast.error('Failed to load client details');
+        toast.error(err.message || 'Failed to load client details');
         navigate('/clients');
       } finally {
         setLoading(false);
@@ -83,6 +87,18 @@ const ClientDetailsPage = () => {
     };
     fetchClient();
   }, [id, navigate, toast]);
+
+  const handleEnable = async () => {
+    try {
+      await enableClientApi(id);
+      toast.success('Client enabled successfully');
+      // Refresh client data
+      const data = await getClientByIdApi(id);
+      setClient(data);
+    } catch (err) {
+      toast.error(err.message || 'Failed to enable client');
+    }
+  };
 
   if (loading || !client) return <LoadingSpinner />;
 
@@ -103,6 +119,23 @@ const ClientDetailsPage = () => {
     );
   };
 
+  const renderDate = (dateField, fallbackField, clientObj, fieldName) => {
+    // 1. Check direct object (e.g. dateOfMembership.bsDate)
+    if (typeof dateField === 'object' && dateField?.bsDate) return dateField.bsDate;
+    
+    // 2. Check direct strings
+    if (typeof dateField === 'string' && dateField) return dateField;
+    if (typeof fallbackField === 'string' && fallbackField) return fallbackField;
+    
+    // 3. Check common alternate field names in the client object
+    if (clientObj && fieldName === 'membership') {
+      if (clientObj.membershipDate) return clientObj.membershipDate;
+      if (clientObj.membershipDateBs) return clientObj.membershipDateBs;
+    }
+    
+    return '—';
+  };
+
   return (
     <div className="page-content" style={{ maxWidth: '900px', margin: '0 auto' }}>
       <div className="page-header" style={{ marginBottom: '1.5rem' }}>
@@ -111,6 +144,9 @@ const ClientDetailsPage = () => {
           <p className="page-subtitle">Viewing details for {client.fullNameEnglish || client.fullNameNepali}</p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
+          {!client.isActive && (
+            <button className="btn btn-success" onClick={handleEnable}>Enable</button>
+          )}
           <button className="btn btn-primary" onClick={() => navigate(`/clients/${id}/edit`)}>Edit</button>
           <button className="btn btn-outline" onClick={() => navigate('/clients')}>Back to List</button>
         </div>
@@ -122,19 +158,19 @@ const ClientDetailsPage = () => {
             <h3 className="form-section-title">General Information (सामान्य जानकारी)</h3>
           </div>
           <div className="form-grid">
-            <div className="detail-item"><strong>Account Number:</strong><br/>{client.accountNumber}</div>
-            <div className="detail-item"><strong>Membership ID:</strong><br/>{client.membershipId}</div>
+            <div className="detail-item"><strong>Account Number / खाता नम्बर:</strong><br/>{client.accountNumber}</div>
+            <div className="detail-item"><strong>Membership ID / सदस्यता नम्बर:</strong><br/>{client.membershipId}</div>
             <div className="detail-item"><strong>Name (English):</strong><br/>{client.fullNameEnglish}</div>
             <div className="detail-item"><strong>पूरा नाम (Nepali):</strong><br/>{client.fullNameNepali}</div>
-            <div className="detail-item"><strong>Date of Birth (BS):</strong><br/>{client.dateOfBirth?.bsDate}</div>
-            <div className="detail-item"><strong>Membership Date (BS):</strong><br/>{client.dateOfMembership?.bsDate}</div>
-            <div className="detail-item"><strong>Status:</strong><br/>
+            <div className="detail-item"><strong>Date of Birth (BS) / जन्म मिति:</strong><br/>{renderDate(client.dateOfBirth, client.dateOfBirthBs)}</div>
+            <div className="detail-item"><strong>Membership Date (BS) / सदस्यता मिति:</strong><br/>{renderDate(client.dateOfMembership, client.dateOfMembershipBs, client, 'membership')}</div>
+            <div className="detail-item"><strong>Status / अवस्था:</strong><br/>
               <span className={`badge ${client.isActive ? 'badge-success' : 'badge-danger'}`}>
                 {client.isActive ? 'Active' : 'Inactive'}
               </span>
             </div>
-            <div className="detail-item"><strong>Email ID:</strong><br/>{client.emailId || '—'}</div>
-            <div className="detail-item"><strong>Mobile Number:</strong><br/>{client.mobileNumber}</div>
+            <div className="detail-item"><strong>Email ID / ईमेल:</strong><br/>{client.emailId || '—'}</div>
+            <div className="detail-item"><strong>Mobile Number / मोबाइल नम्बर:</strong><br/>{client.mobileNumber}</div>
           </div>
         </div>
 
@@ -143,11 +179,11 @@ const ClientDetailsPage = () => {
             <h3 className="form-section-title">Identity & Shares</h3>
           </div>
           <div className="form-grid">
-            <div className="detail-item"><strong>Citizenship No:</strong><br/>{client.citizenshipNumber}</div>
-            <div className="detail-item"><strong>Issue District:</strong><br/>{districts[client.citizenshipIssueDistrict] || client.citizenshipIssueDistrict}</div>
-            <div className="detail-item"><strong>Issue Date (BS):</strong><br/>{client.citizenshipIssueDate?.bsDate}</div>
-            <div className="detail-item"><strong>Share Amount:</strong><br/>NPR {client.shareAmount}</div>
-            <div className="detail-item"><strong>Share Number:</strong><br/>{client.shareNumber}</div>
+            <div className="detail-item"><strong>{client.isMinor ? 'Date of Birth No / जन्म दर्ता नम्बर' : 'Citizenship No / नागरिकता नम्बर'}:</strong><br/>{client.citizenshipNumber}</div>
+            <div className="detail-item"><strong>{client.isMinor ? 'DOB Issue District / जन्म दर्ता जारी जिल्ला' : 'Issue District / जारी जिल्ला'}:</strong><br/>{districts[client.citizenshipIssueDistrict] || client.citizenshipIssueDistrict}</div>
+            <div className="detail-item"><strong>{client.isMinor ? 'DOB Issue Date (BS) / जन्म दर्ता जारी मिति' : 'Issue Date (BS) / जारी मिति'}:</strong><br/>{renderDate(client.citizenshipIssueDate, client.citizenshipIssueDateBs)}</div>
+            <div className="detail-item"><strong>Share Amount / शेयर रकम:</strong><br/>NPR {client.shareAmount}</div>
+            <div className="detail-item"><strong>Share Number / शेयर कित्ता:</strong><br/>{client.shareNumber}</div>
           </div>
         </div>
 
@@ -157,11 +193,11 @@ const ClientDetailsPage = () => {
           </div>
           <div className="form-grid">
             <div className="detail-item"><strong>Father (English):</strong><br/>{client.fatherNameEnglish}</div>
-            <div className="detail-item"><strong>Father (Nepali):</strong><br/>{client.fatherNameNepali}</div>
-            <div className="detail-item"><strong>Spouse ({spouseTypes[client.spouseType] || client.spouseType || 'N/A'}):</strong><br/>
+            <div className="detail-item"><strong>Father (Nepali) / बुबाको नाम:</strong><br/>{client.fatherNameNepali}</div>
+            <div className="detail-item"><strong>Spouse ({spouseTypes[client.spouseType] || client.spouseType || 'N/A'}) / पति/पत्नीको नाम:</strong><br/>
               {client.spouseNameEnglish ? `${client.spouseNameEnglish} / ` : ''}{client.spouseNameNepali || '—'}
             </div>
-            <div className="detail-item"><strong>Ancestor ({ancestorTypes[client.ancestorType] || client.ancestorType || 'Ancestor'}):</strong><br/>
+            <div className="detail-item"><strong>Ancestor ({ancestorTypes[client.ancestorType] || client.ancestorType || 'Ancestor'}) / पुर्खाको नाम:</strong><br/>
               {client.ancestorNameEnglish ? `${client.ancestorNameEnglish} / ` : ''}{client.ancestorNameNepali || '—'}
             </div>
           </div>
@@ -173,10 +209,10 @@ const ClientDetailsPage = () => {
           </div>
           <div className="form-grid">
             <div className="detail-item"><strong>Nominee (English):</strong><br/>{client.nomineesNameEnglish || '—'}</div>
-            <div className="detail-item"><strong>Nominee (Nepali):</strong><br/>{client.nomineesNameNepali || '—'}</div>
-            <div className="detail-item"><strong>Nominee Relation ID:</strong><br/>{client.nomineesRelation || '—'}</div>
+            <div className="detail-item"><strong>Nominee (Nepali) / हकवालाको नाम:</strong><br/>{client.nomineesNameNepali || '—'}</div>
+            <div className="detail-item"><strong>Nominee Relation / हकवालाको नाता:</strong><br/>{nomineeRelations[client.nomineesRelation] || client.nomineesRelation || '—'}</div>
             <div className="detail-item"><strong>Guardian (English):</strong><br/>{client.guardiansNameEnglish || '—'}</div>
-            <div className="detail-item"><strong>Guardian (Nepali):</strong><br/>{client.guardiansNameNepali || '—'}</div>
+            <div className="detail-item"><strong>Guardian (Nepali) / संरक्षकको नाम:</strong><br/>{client.guardiansNameNepali || '—'}</div>
           </div>
         </div>
 

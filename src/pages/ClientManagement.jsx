@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
-import { getClientsApi, deleteClientApi } from '../services/api';
+import { getClientsApi, deleteClientApi, searchClientsApi, getDeletedClientsApi, enableClientApi } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 const ClientManagement = () => {
@@ -13,15 +13,27 @@ const ClientManagement = () => {
   const [page, setPage] = useState(0);
   const [size, setSize] = useState(10);
   const [totalPages, setTotalPages] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showDeleted, setShowDeleted] = useState(false);
 
   const fetchClients = async () => {
     setLoading(true);
     try {
-      const data = await getClientsApi({ page, size, sort: 'id,desc' });
+      let data;
+      const params = { page, size, sort: 'id,desc' };
+      
+      if (showDeleted) {
+        data = await getDeletedClientsApi(params);
+      } else if (searchQuery.trim()) {
+        data = await searchClientsApi({ ...params, query: searchQuery });
+      } else {
+        data = await getClientsApi(params);
+      }
+      
       setClients(data.content || []);
       setTotalPages(data.totalPages || 0);
-    } catch {
-      toast.error('Failed to load clients');
+    } catch (err) {
+      toast.error(err.message || 'Failed to load clients');
     } finally {
       setLoading(false);
     }
@@ -29,7 +41,23 @@ const ClientManagement = () => {
 
   useEffect(() => {
     fetchClients();
-  }, [page, size]);
+  }, [page, size, showDeleted]);
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    setPage(0);
+    fetchClients();
+  };
+
+  const handleRestore = async (id) => {
+    try {
+      await enableClientApi(id);
+      toast.success('Client restored');
+      fetchClients();
+    } catch (err) {
+      toast.error(err.message || 'Failed to restore client');
+    }
+  };
 
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this client?')) return;
@@ -42,8 +70,8 @@ const ClientManagement = () => {
       } else {
         fetchClients();
       }
-    } catch {
-      toast.error('Failed to delete client');
+    } catch (err) {
+      toast.error(err.message || 'Failed to delete client');
     }
   };
 
@@ -53,6 +81,19 @@ const ClientManagement = () => {
 
   const handlePrevPage = () => {
     if (page > 0) setPage(p => p - 1);
+  };
+
+  const renderDate = (clientObj) => {
+    // 1. Check for nested object
+    if (clientObj.dateOfMembership && typeof clientObj.dateOfMembership === 'object' && clientObj.dateOfMembership.bsDate) {
+      return clientObj.dateOfMembership.bsDate;
+    }
+    // 2. Check for common field names
+    const fields = ['dateOfMembershipBs', 'dateOfMembership', 'membershipDate', 'membershipDateBs'];
+    for (const field of fields) {
+      if (clientObj[field] && typeof clientObj[field] === 'string') return clientObj[field];
+    }
+    return '—';
   };
 
   if (loading && clients.length === 0) return <LoadingSpinner />;
@@ -67,12 +108,48 @@ const ClientManagement = () => {
         <button className="btn btn-primary" onClick={() => navigate('/clients/new')}>+ Add Client</button>
       </div>
 
+      <div className="modern-search-card">
+        <form onSubmit={handleSearch} className="modern-search-form">
+          <div className="modern-search-wrapper">
+            <svg className="modern-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input
+              type="text"
+              className="modern-search-input"
+              placeholder="Search clients by name, account number..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              disabled={showDeleted}
+            />
+          </div>
+          <button type="submit" className="modern-search-btn" disabled={showDeleted}>Search</button>
+        </form>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <label className={`modern-toggle-wrapper ${showDeleted ? 'active' : ''}`}>
+            <input
+              type="checkbox"
+              className="modern-toggle-input"
+              checked={showDeleted}
+              onChange={(e) => {
+                setShowDeleted(e.target.checked);
+                setPage(0);
+                setSearchQuery('');
+              }}
+            />
+            {showDeleted ? 'Showing Deleted Records' : 'Show Deleted'}
+          </label>
+        </div>
+      </div>
+
       <div className="card">
         <div className="table-wrapper">
           <table className="data-table">
             <thead>
               <tr>
                 <th>Account No</th>
+                <th>Membership ID</th>
                 <th>Name</th>
                 <th>Phone</th>
                 <th>Citizenship No</th>
@@ -84,7 +161,7 @@ const ClientManagement = () => {
             <tbody>
               {clients.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="empty-state">
+                  <td colSpan="8" className="empty-state">
                     No clients found. Click "Add Client" to create one.
                   </td>
                 </tr>
@@ -92,10 +169,11 @@ const ClientManagement = () => {
                 clients.map((client) => (
                   <tr key={client.id}>
                     <td>{client.accountNumber}</td>
+                    <td>{client.membershipId}</td>
                     <td>{client.fullNameEnglish || client.fullNameNepali}</td>
                     <td>{client.mobileNumber}</td>
                     <td>{client.citizenshipNumber}</td>
-                    <td>{client.dateOfMembershipBs}</td>
+                    <td>{renderDate(client)}</td>
                     <td>
                       <span className={`badge ${client.isActive ? 'badge-success' : 'badge-danger'}`}>
                         {client.isActive ? 'Active' : 'Inactive'}
@@ -103,15 +181,28 @@ const ClientManagement = () => {
                     </td>
                     <td>
                       <div className="action-btns">
-                        <button className="btn btn-sm btn-outline" onClick={() => navigate(`/clients/${client.id}`)}>
-                          View
-                        </button>
-                        <button className="btn btn-sm btn-outline" onClick={() => navigate(`/clients/${client.id}/edit`)}>
-                          Edit
-                        </button>
-                        <button className="btn btn-sm btn-danger" onClick={() => handleDelete(client.id)}>
-                          Delete
-                        </button>
+                        {showDeleted ? (
+                          <button className="btn btn-sm btn-success" onClick={() => handleRestore(client.id)}>
+                            Restore
+                          </button>
+                        ) : (
+                          <>
+                            {!client.isActive && (
+                              <button className="btn btn-sm btn-success" onClick={() => handleRestore(client.id)}>
+                                Enable
+                              </button>
+                            )}
+                            <button className="btn btn-sm btn-outline" onClick={() => navigate(`/clients/${client.id}`)}>
+                              View
+                            </button>
+                            <button className="btn btn-sm btn-outline" onClick={() => navigate(`/clients/${client.id}/edit`)}>
+                              Edit
+                            </button>
+                            <button className="btn btn-sm btn-danger" onClick={() => handleDelete(client.id)}>
+                              Delete
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

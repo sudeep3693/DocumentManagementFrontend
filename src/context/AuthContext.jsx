@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { loginApi, updateProfileApi } from '../services/api';
+import { loginApi, updateProfileApi, logoutApi } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -111,11 +111,28 @@ export const AuthProvider = ({ children }) => {
     setAuthState((prev) => ({ ...prev, user: updatedUser }));
   }, [authState.user]);
 
-  const logout = useCallback(() => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
-    setAuthState({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false });
+  const logout = useCallback(async () => {
+    try {
+      await logoutApi();
+    } catch (error) {
+      console.error('Logout API failed:', error);
+    } finally {
+      // Clear localStorage
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+
+      // Clear common token cookies if they exist
+      document.cookie = 'accessToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+      document.cookie = 'refreshToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+
+      setAuthState({
+        user: null,
+        accessToken: null,
+        refreshToken: null,
+        isAuthenticated: false,
+      });
+    }
   }, []);
 
   const value = {

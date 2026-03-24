@@ -22,8 +22,8 @@ const UserManagement = () => {
     try {
       const data = await getAdminUsersApi(status);
       setUsers(Array.isArray(data) ? data : []);
-    } catch {
-      toast.error('Failed to load users');
+    } catch (err) {
+      toast.error(err.message || 'Failed to load users');
       setUsers([]);
     } finally {
       setLoading(false);

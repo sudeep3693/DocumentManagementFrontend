@@ -117,6 +117,13 @@ axiosInstance.interceptors.response.use(
       }
     }
 
+    if (error.response && error.response.data) {
+      const data = error.response.data;
+      if (data.message || data.developerMessage) {
+        error.message = data.message || data.developerMessage;
+      }
+    }
+
     return Promise.reject(error);
   }
 );

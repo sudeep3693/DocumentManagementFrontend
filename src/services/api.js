@@ -19,6 +19,11 @@ export const refreshTokenApi = async (refreshToken) => {
   return response.data;
 };
 
+export const logoutApi = async () => {
+  const response = await axiosInstance.post('/api/v1/auth/logout');
+  return response.data;
+};
+
 // ==================== ADMIN USER MANAGEMENT (Real Backend) ====================
 
 export const getAdminUsersApi = async (status) => {
@@ -135,6 +140,21 @@ export const updateClientApi = async (clientId, clientData) => {
 
 export const deleteClientApi = async (clientId) => {
   const response = await axiosInstance.delete(`/api/v1/clients/${clientId}`);
+  return response.data;
+};
+
+export const searchClientsApi = async (params) => {
+  const response = await axiosInstance.get('/api/v1/clients/search', { params });
+  return response.data;
+};
+
+export const getDeletedClientsApi = async (params) => {
+  const response = await axiosInstance.get('/api/v1/clients/deleted', { params });
+  return response.data;
+};
+
+export const enableClientApi = async (clientId) => {
+  const response = await axiosInstance.patch(`/api/v1/clients/${clientId}/enable`);
   return response.data;
 };
 

@@ -54,8 +54,8 @@ const UserStatusManagement = () => {
         data = await getAdminAllUsersApi();
       }
       setUsers(Array.isArray(data) ? data : []);
-    } catch {
-      toast.error('Failed to load users');
+    } catch (err) {
+      toast.error(err.message || 'Failed to load users');
       setUsers([]);
     } finally {
       setLoading(false);
@@ -73,7 +73,8 @@ const UserStatusManagement = () => {
   const openEditModal = (user) => {
     setEditingUser(user);
     setEditPublished(user.published ?? false);
-    setEditActiveUntil(toDateInputValue(user.activeUntil));
+    // Keep the entire date object so adDate is preserved
+    setEditActiveUntil(user.activeUntil || '');
   };
 
   const closeEditModal = () => {
@@ -104,8 +105,8 @@ const UserStatusManagement = () => {
       toast.success('User status updated successfully');
       closeEditModal();
       fetchUsers(activeFilter);
-    } catch {
-      toast.error('Failed to update user status');
+    } catch (err) {
+      toast.error(err.message || 'Failed to update user status');
     } finally {
       setSubmitting(false);
     }

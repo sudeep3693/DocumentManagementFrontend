@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react';
 import { getCodeValuesApi } from '../../services/api';
 import NepaliDatePickerWrapper from '../NepaliDatePickerWrapper';
+import { 
+  isValidEnglishName, 
+  isNepaliAlphaOnly, 
+  isNepaliNumberWithSpecial,
+  isEnglishNumber 
+} from '../../utils/validation';
 
 const CODE_DISTRICT = 1002;
 
@@ -89,8 +95,16 @@ const AuthorizedPersonStep = ({ prefill, formData, onNext, onBack }) => {
   };
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-    if (errors[e.target.name]) setErrors({ ...errors, [e.target.name]: '' });
+    const { name, value } = e.target;
+
+    // Real-time filtering
+    if (name === 'fullName' && !isValidEnglishName(value)) return;
+    if (name === 'fullNameNepali' && !isNepaliAlphaOnly(value)) return;
+    if (name === 'contactNo' && !isEnglishNumber(value)) return;
+    if (name === 'citizenshipNo' && !isNepaliNumberWithSpecial(value)) return;
+
+    setForm({ ...form, [name]: value });
+    if (errors[name]) setErrors({ ...errors, [name]: '' });
   };
 
   return (

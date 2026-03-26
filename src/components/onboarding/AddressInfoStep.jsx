@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getCodeValuesApi } from '../../services/api';
+import { isNepaliAlphaOnly, isNepaliNumberWithSpecial } from '../../utils/validation';
 
 const CODE_PROVINCE = 1001;
 const CODE_DISTRICT = 1002;
@@ -122,6 +123,11 @@ const AddressInfoStep = ({ prefill, formData, data, onNext, onBack }) => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+
+    // Real-time filtering
+    if (name === 'tole' && !isNepaliAlphaOnly(value)) return;
+    if (name === 'houseNo' && !isNepaliNumberWithSpecial(value)) return;
+
     setAddress(prev => {
       const updated = { ...prev, [name]: value };
       

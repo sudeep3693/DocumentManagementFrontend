@@ -123,6 +123,15 @@ export const getClientsApi = async (params) => {
   return response.data;
 };
 
+export const bulkImportClientsApi = async (formData) => {
+  const response = await axiosInstance.post('/api/v1/clients/bulk-import', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data;
+};
+
 export const getClientByIdApi = async (clientId) => {
   const response = await axiosInstance.get(`/api/v1/clients/${clientId}`);
   return response.data;
@@ -155,6 +164,40 @@ export const getDeletedClientsApi = async (params) => {
 
 export const enableClientApi = async (clientId) => {
   const response = await axiosInstance.patch(`/api/v1/clients/${clientId}/enable`);
+  return response.data;
+};
+
+export const downloadBulkImportTemplateApi = async () => {
+  const response = await axiosInstance.get('/api/v1/clients/bulk/download-template', {
+    responseType: 'blob',
+  });
+  return response.data;
+};
+
+// ==================== LOAN SERVICES (Real Backend) ====================
+
+export const addLoanApi = async (loanData) => {
+  const response = await axiosInstance.post('/api/v1/loans', loanData);
+  return response.data;
+};
+
+export const getLoansApi = async (params) => {
+  const response = await axiosInstance.get('/api/v1/loans', { params });
+  return response.data;
+};
+
+export const getLoanByIdApi = async (loanId) => {
+  const response = await axiosInstance.get(`/api/v1/loans/${loanId}`);
+  return response.data;
+};
+
+export const updateLoanApi = async (loanId, loanData) => {
+  const response = await axiosInstance.put(`/api/v1/loans/${loanId}`, loanData);
+  return response.data;
+};
+
+export const getLoansByClientIdApi = async (clientId, params) => {
+  const response = await axiosInstance.get(`/api/v1/loans/client/${clientId}`, { params });
   return response.data;
 };
 

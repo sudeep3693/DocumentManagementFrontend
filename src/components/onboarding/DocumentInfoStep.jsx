@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getCodeValuesApi } from '../../services/api';
 import NepaliDatePickerWrapper from '../NepaliDatePickerWrapper';
+import { isNepaliNumberWithSpecial } from '../../utils/validation';
 
 const CODE_DOCUMENT_TYPE = 58;
 
@@ -56,6 +57,9 @@ const DocumentInfoStep = ({ prefill, formData, onNext, onBack }) => {
   };
 
   const handleChange = (index, field, value) => {
+    // Real-time filtering for document number
+    if (field === 'documentNumber' && !isNepaliNumberWithSpecial(value)) return;
+
     const updated = [...documents];
     updated[index] = { ...updated[index], [field]: value };
     setDocuments(updated);
@@ -64,6 +68,15 @@ const DocumentInfoStep = ({ prefill, formData, onNext, onBack }) => {
       updatedErrors[index] = { ...updatedErrors[index], [field]: '' };
       setErrors(updatedErrors);
     }
+  };
+
+  // Helper to filter already selected document types
+  const getAvailableTypes = (currentIndex) => {
+    const selectedTypes = documents
+      .map((doc, i) => i !== currentIndex ? doc.documentType : null)
+      .filter(Boolean);
+    
+    return documentTypes.filter(t => !selectedTypes.includes(String(t.id)));
   };
 
   const validate = () => {
@@ -113,7 +126,7 @@ const DocumentInfoStep = ({ prefill, formData, onNext, onBack }) => {
               <label>Type *</label>
               <select value={doc.documentType} onChange={(e) => handleChange(index, 'documentType', e.target.value)}>
                 <option value="">Select</option>
-                {documentTypes.map((t) => (
+                {getAvailableTypes(index).map((t) => (
                   <option key={t.id} value={t.id}>{t.codeValueOptional || t.codeValue}</option>
                 ))}
               </select>

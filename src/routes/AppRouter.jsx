@@ -18,6 +18,9 @@ import ClientFormPage from '../pages/ClientFormPage';
 import ClientDetailsPage from '../pages/ClientDetailsPage';
 import UserStatusManagement from '../pages/UserStatusManagement';
 import Profile from '../pages/Profile';
+import LoanManagement from '../pages/LoanManagement';
+import LoanFormPage from '../pages/LoanFormPage';
+import LoanDetailsPage from '../pages/LoanDetailsPage';
 
 const AuthRedirect = ({ children }) => {
   const { isAuthenticated, role, status } = useAuth();
@@ -54,6 +57,10 @@ const AppRouter = () => {
           <Route path="/clients/new" element={<ClientFormPage />} />
           <Route path="/clients/:id" element={<ClientDetailsPage />} />
           <Route path="/clients/:id/edit" element={<ClientFormPage />} />
+          <Route path="/loans" element={<LoanManagement />} />
+          <Route path="/loans/new" element={<LoanFormPage />} />
+          <Route path="/loans/:id" element={<LoanDetailsPage />} />
+          <Route path="/loans/:id/edit" element={<LoanFormPage />} />
           <Route path="/profile" element={<Profile />} />
         </Route>
 

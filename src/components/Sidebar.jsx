@@ -18,7 +18,8 @@ const Sidebar = () => {
 
   const userLinks = [
     { to: '/dashboard', label: 'Dashboard', icon: '📊' },
-    { to: '/clients', label: 'Clients', icon: '🏢' },
+    { to: '/clients', label: 'Clients (ग्राहक)', icon: '🏢' },
+    { to: '/loans', label: 'Loans (कर्जा)', icon: '💰' },
     { to: '/profile', label: 'Profile', icon: '👤' },
   ];
 

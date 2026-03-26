@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
-import { getClientsApi, deleteClientApi, searchClientsApi, getDeletedClientsApi, enableClientApi } from '../services/api';
+import { getClientsApi, deleteClientApi, searchClientsApi, getDeletedClientsApi, enableClientApi, downloadBulkImportTemplateApi } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
+import BulkImportModal from '../components/BulkImportModal';
 
 const ClientManagement = () => {
   const navigate = useNavigate();
@@ -15,6 +16,28 @@ const ClientManagement = () => {
   const [totalPages, setTotalPages] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [showDeleted, setShowDeleted] = useState(false);
+  const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
+  const [downloadingTemplate, setDownloadingTemplate] = useState(false);
+
+  const handleDownloadTemplate = async () => {
+    setDownloadingTemplate(true);
+    try {
+      const blob = await downloadBulkImportTemplateApi();
+      const url = window.URL.createObjectURL(new Blob([blob]));
+      const link = document.createElement('a');
+      link.href = url;
+      const filename = `Client_Bulk_Import_Template_${new Date().toISOString().split('T')[0]}.xlsx`;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success('Template downloaded successfully');
+    } catch (err) {
+      toast.error(err.message || 'Failed to download template');
+    } finally {
+      setDownloadingTemplate(false);
+    }
+  };
 
   const fetchClients = async () => {
     setLoading(true);
@@ -102,11 +125,27 @@ const ClientManagement = () => {
     <div className="page-content">
       <div className="page-header">
         <div>
-          <h1>Client Management</h1>
+          <h1>Client Management (ग्राहक व्यवस्थापन)</h1>
           <p className="page-subtitle">Manage your cooperative clients</p>
         </div>
-        <button className="btn btn-primary" onClick={() => navigate('/clients/new')}>+ Add Client</button>
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <button 
+            className="btn btn-outline" 
+            onClick={handleDownloadTemplate}
+            disabled={downloadingTemplate}
+          >
+            {downloadingTemplate ? 'Downloading...' : 'Download Template'}
+          </button>
+          <button className="btn btn-outline" onClick={() => setIsBulkImportModalOpen(true)}>Bulk Import</button>
+          <button className="btn btn-primary" onClick={() => navigate('/clients/new')}>+ Add Client</button>
+        </div>
       </div>
+
+      <BulkImportModal 
+        isOpen={isBulkImportModalOpen} 
+        onClose={() => setIsBulkImportModalOpen(false)} 
+        onSuccess={fetchClients} 
+      />
 
       <div className="modern-search-card">
         <form onSubmit={handleSearch} className="modern-search-form">

@@ -1,5 +1,11 @@
 import { useState, useEffect } from 'react';
 import { getCodeValuesApi } from '../../services/api';
+import { 
+  isValidEnglishName, 
+  isNepaliAlphaOnly, 
+  isValidEmailChar, 
+  isEnglishNumber 
+} from '../../utils/validation';
 
 const CODE_COOPERATIVE_TYPE = 57;
 
@@ -95,8 +101,17 @@ const CompanyInfoStep = ({ data, prefill, formData, onNext, isEditMode }) => {
   };
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-    if (errors[e.target.name]) setErrors({ ...errors, [e.target.name]: '' });
+    const { name, value } = e.target;
+    
+    // Real-time filtering based on requirements
+    if (name === 'nameEnglish' && !isValidEnglishName(value)) return;
+    if (name === 'nameNepali' && !isNepaliAlphaOnly(value)) return;
+    if (name === 'cooperativeRegisteredOffice' && !isNepaliAlphaOnly(value)) return;
+    if (name === 'email' && !isValidEmailChar(value)) return;
+    if (name === 'contactNumber' && !isEnglishNumber(value)) return;
+
+    setForm({ ...form, [name]: value });
+    if (errors[name]) setErrors({ ...errors, [name]: '' });
   };
 
   return (

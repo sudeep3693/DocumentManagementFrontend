@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import PasswordStrengthIndicator, { validatePassword } from '../PasswordStrengthIndicator';
+import { hasNoNepali } from '../../utils/validation';
 
 const CredentialStep = ({ onNext, onBack }) => {
   const [form, setForm] = useState({
@@ -32,8 +33,13 @@ const CredentialStep = ({ onNext, onBack }) => {
   };
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-    if (errors[e.target.name]) setErrors({ ...errors, [e.target.name]: '' });
+    const { name, value } = e.target;
+
+    // Block Nepali characters and numbers in username/password
+    if (!hasNoNepali(value)) return;
+
+    setForm({ ...form, [name]: value });
+    if (errors[name]) setErrors({ ...errors, [name]: '' });
   };
 
   return (

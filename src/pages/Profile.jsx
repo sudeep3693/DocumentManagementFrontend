@@ -4,6 +4,7 @@ import { useToast } from '../context/ToastContext';
 import { getUserProfileApi, updateUserProfileApi, changeUserPasswordApi } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import PasswordStrengthIndicator, { validatePassword } from '../components/PasswordStrengthIndicator';
+import { hasNoNepali } from '../utils/validation';
 
 import CompanyInfoStep from '../components/onboarding/CompanyInfoStep';
 import DocumentInfoStep from '../components/onboarding/DocumentInfoStep';
@@ -109,7 +110,9 @@ const Profile = () => {
 
   // ----- PASSWORD HANDLERS ----- //
   const handlePwdChange = (e) => {
-    setPwdForm({ ...pwdForm, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    if (!hasNoNepali(value)) return;
+    setPwdForm({ ...pwdForm, [name]: value });
   };
 
   const handlePwdSubmit = async (e) => {

@@ -189,6 +189,81 @@ const LoanFormPage = () => {
           const loanData = await getLoanByIdApi(id);
           setOriginalLoan(loanData);
           
+          let mappedSakshiList = [];
+          if (loanData.sakshiDetails) {
+            mappedSakshiList = await Promise.all(loanData.sakshiDetails.map(async (s) => {
+              let cId = s.clientId || 0;
+              let isEx = !!cId;
+              let memId = '';
+              let fName = s.fullNameNepali || s.fullName || '';
+              
+              if (isEx) {
+                try {
+                  const c = await getClientByIdApi(cId);
+                  memId = c.membershipId || c.accountNumber || '';
+                  fName = c.fullNameNepali || c.fullNameEnglish || fName;
+                } catch (e) {}
+              }
+
+              let pId = s.province;
+              let dId = s.district;
+              let mId = s.localGovernment;
+              let wId = s.wardNumber;
+              let gId = s.gender;
+
+              const fetchedProvinces = extractArray(prov);
+              if (typeof pId === 'string' && isNaN(Number(pId))) {
+                const pObj = fetchedProvinces.find(x => x.codeValue === pId || x.codeValueOptional === pId);
+                if (pObj) pId = pObj.id;
+              }
+
+              const fetchedGenders = extractArray(g);
+              if (typeof gId === 'string' && isNaN(Number(gId))) {
+                const gObj = fetchedGenders.find(x => x.codeValue === gId || x.codeValueOptional === gId);
+                if (gObj) gId = gObj.id;
+              }
+
+              const wArr = extractArray(w);
+              if (typeof wId === 'string' && isNaN(Number(wId))) {
+                const wObj = wArr.find(x => x.codeValue === wId || x.codeValueOptional === wId);
+                if (wObj) wId = wObj.id;
+              }
+
+              if (pId && typeof dId === 'string' && isNaN(Number(dId))) {
+                try {
+                  const dRes = await getCodeValuesApi(CODE_IDS.DISTRICT, pId);
+                  const dArr = extractArray(dRes);
+                  setDistrictsObj(prev => ({ ...prev, [pId]: dArr }));
+                  const dObj = dArr.find(x => x.codeValue === dId || x.codeValueOptional === dId);
+                  if (dObj) dId = dObj.id;
+                } catch (e) {}
+              }
+
+              if (dId && typeof mId === 'string' && isNaN(Number(mId))) {
+                try {
+                  const mRes = await getCodeValuesApi(CODE_IDS.MUNICIPALITY, dId);
+                  const mArr = extractArray(mRes);
+                  setMunicipalitiesObj(prev => ({ ...prev, [dId]: mArr }));
+                  const mObj = mArr.find(x => x.codeValue === mId || x.codeValueOptional === mId);
+                  if (mObj) mId = mObj.id;
+                } catch (e) {}
+              }
+
+              return {
+                clientId: cId,
+                membershipId: memId,
+                _isExisting: isEx,
+                age: s.age || '',
+                fullNameNepali: fName,
+                province: pId || '',
+                district: dId || '',
+                localGovernment: mId || '',
+                wardNumber: wId || '',
+                gender: gId || ''
+              };
+            }));
+          }
+
           const mappedForm = {
             clientId: loanData.clientsDetails?.id || loanData.clientId || '',
             purposeOfLoan: loanData.purposeOfLoan || '', 
@@ -206,17 +281,7 @@ const LoanFormPage = () => {
                 address: d.temporaryAddressDetails ? `${d.temporaryAddressDetails.toleName || ''}, Ward ${d.temporaryAddressDetails.wardNo || ''}` : ''
               }
             })),
-            sakshiList: (loanData.sakshiDetails || []).map(s => ({
-              clientId: s.clientId || s.id || s.sakshiId || 0,
-              _isExisting: !!(s.clientId || s.id || s.sakshiId),
-              age: s.age || '',
-              fullNameNepali: s.fullNameNepali || s.fullName || '',
-              province: s.province || '',
-              district: s.district || '',
-              localGovernment: s.localGovernment || '',
-              wardNumber: s.wardNumber || '',
-              gender: s.gender || ''
-            }))
+            sakshiList: mappedSakshiList
           };
 
           // If purpose is a string (e.g. "कृषि"), try to find matching ID in the FRESHLY FETCHED PURPOSES
@@ -357,6 +422,7 @@ const LoanFormPage = () => {
         newList[index] = {
           ...newList[index],
           clientId: fullClient.id,
+          membershipId: fullClient.membershipId || fullClient.accountNumber,
           age: ageStr,
           fullNameNepali: fullClient.fullNameNepali || fullClient.fullNameEnglish,
           gender: fullClient.gender || '',
@@ -598,21 +664,9 @@ const LoanFormPage = () => {
                       label="Search Client *"
                       onSelect={(c) => handleSakshiSelectClient(index, c)}
                       error={errors[`sk_${index}_clientId`]}
-                      selectedClientDisplay={sk.clientId || sk.fullNameNepali ? `${sk.fullNameNepali} (ID: ${sk.clientId})` : ''}
+                      selectedClientDisplay={sk.clientId || sk.fullNameNepali ? `${sk.fullNameNepali} ${sk.membershipId ? `(Mem: ${sk.membershipId})` : `(ID: ${sk.clientId})`}` : ''}
                     />
                   </div>
-                  {(sk.clientId !== 0 || sk.fullNameNepali) && (
-                    <>
-                      <div className="form-group">
-                        <label>Auto-filled Name</label>
-                        <input readOnly value={sk.fullNameNepali} />
-                      </div>
-                      <div className="form-group">
-                        <label>Age</label>
-                        <input readOnly value={sk.age || ''} />
-                      </div>
-                    </>
-                  )}
                 </div>
               ) : (
                 <div className="form-grid">

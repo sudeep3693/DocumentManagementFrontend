@@ -14,6 +14,8 @@ const CODE_IDS = {
   SPOUSE_TYPE: 56,
   NOMINEE_RELATION: 1003,
   GENDER: 1004,
+  MARITAL_STATUS: 1005,
+  CASTE: 1006,
 };
 
 const extractArray = (data) => {
@@ -57,11 +59,13 @@ const ClientDetailsPage = () => {
   const [ancestorTypes, setAncestorTypes] = useState({});
   const [nomineeRelations, setNomineeRelations] = useState({});
   const [genders, setGenders] = useState({});
+  const [maritalStatuses, setMaritalStatuses] = useState({});
+  const [castRecords, setCastRecords] = useState({});
 
   useEffect(() => {
     const fetchSelects = async () => {
       try {
-        const [provList, wardList, distList, munList, spouseList, ancestorList, nomineeList, genderList] = await Promise.all([
+        const [provList, wardList, distList, munList, spouseList, ancestorList, nomineeList, genderList, maritalList, casteList] = await Promise.all([
           getCodeValuesApi(CODE_IDS.PROVINCE).then(extractArray),
           getCodeValuesApi(CODE_IDS.WARD).then(extractArray),
           getCodeValuesApi(CODE_IDS.DISTRICT).then(extractArray),
@@ -70,6 +74,8 @@ const ClientDetailsPage = () => {
           getCodeValuesApi(CODE_IDS.ANCESTOR_TYPE).then(extractArray),
           getCodeValuesApi(CODE_IDS.NOMINEE_RELATION).then(extractArray),
           getCodeValuesApi(CODE_IDS.GENDER).then(extractArray),
+          getCodeValuesApi(CODE_IDS.MARITAL_STATUS).then(extractArray),
+          getCodeValuesApi(CODE_IDS.CASTE).then(extractArray),
         ]);
         
         const arrToMap = (arr) => arr.reduce((acc, curr) => ({ ...acc, [curr.id]: curr.codeValueOptional || curr.codeValue }), {});
@@ -82,6 +88,8 @@ const ClientDetailsPage = () => {
         setAncestorTypes(arrToMap(ancestorList));
         setNomineeRelations(arrToMap(nomineeList));
         setGenders(arrToMap(genderList));
+        setMaritalStatuses(arrToMap(maritalList));
+        setCastRecords(arrToMap(casteList));
       } catch (err) {
         console.error('Failed to load code values', err);
       }
@@ -133,6 +141,7 @@ const ClientDetailsPage = () => {
         <div className="detail-item"><strong>Ward / वडा नं:</strong><br/>{wards[addr.wardNo] || addr.wardNo}</div>
         <div className="detail-item"><strong>Tole / टोल:</strong><br/>{addr.toleName}</div>
         <div className="detail-item"><strong>House No / घर नं:</strong><br/>{addr.houseNo}</div>
+        <div className="detail-item"><strong>Sabik Address / साविक ठेगाना:</strong><br/>{addr.sabikAddress || '—'}</div>
       </div>
     );
   };
@@ -176,12 +185,13 @@ const ClientDetailsPage = () => {
             <h3 className="form-section-title">General Information (सामान्य जानकारी)</h3>
           </div>
           <div className="form-grid">
-            <div className="detail-item"><strong>Account Number / खाता नम्बर:</strong><br/>{client.accountNumber}</div>
             <div className="detail-item"><strong>Membership ID / सदस्यता नम्बर:</strong><br/>{client.membershipId}</div>
             <div className="detail-item"><strong>Name (English):</strong><br/>{client.fullNameEnglish}</div>
             <div className="detail-item"><strong>पूरा नाम (Nepali):</strong><br/>{client.fullNameNepali}</div>
             <div className="detail-item"><strong>Date of Birth (BS) / जन्म मिति:</strong><br/>{renderDate(client.dateOfBirth, client.dateOfBirthBs)}</div>
             <div className="detail-item"><strong>Gender / लिङ्ग:</strong><br/>{genders[client.gender] || client.gender || '—'}</div>
+            <div className="detail-item"><strong>Marital Status / वैवाहिक स्थिति:</strong><br/>{maritalStatuses[client.maritalStatus] || client.maritalStatus || '—'}</div>
+            <div className="detail-item"><strong>Caste / जाति:</strong><br/>{castRecords[client.castRecordId || client.castRecord] || client.castRecordId || client.castRecord || '—'}</div>
             <div className="detail-item"><strong>Membership Date (BS) / सदस्यता मिति:</strong><br/>{renderDate(client.dateOfMembership, client.dateOfMembershipBs, client, 'membership')}</div>
             <div className="detail-item"><strong>Status / अवस्था:</strong><br/>
               <span className={`badge ${client.isActive ? 'badge-success' : 'badge-danger'}`}>
@@ -203,6 +213,7 @@ const ClientDetailsPage = () => {
             <div className="detail-item"><strong>{isMinor ? 'DOB Issue Date (BS) / जन्म दर्ता जारी मिति' : 'Issue Date (BS) / जारी मिति'}:</strong><br/>{renderDate(client.citizenshipIssueDate, client.citizenshipIssueDateBs)}</div>
             <div className="detail-item"><strong>Share Amount / शेयर रकम:</strong><br/>NPR {client.shareAmount}</div>
             <div className="detail-item"><strong>Share Number / शेयर कित्ता:</strong><br/>{client.shareNumber}</div>
+            <div className="detail-item"><strong>Share Certificate No. / शेयर प्रमाणपत्र नं:</strong><br/>{client.shareCertificateNumber || '—'}</div>
           </div>
         </div>
 
@@ -222,18 +233,6 @@ const ClientDetailsPage = () => {
           </div>
         </div>
         
-        <div className="form-section-card">
-          <div className="form-section-header">
-            <h3 className="form-section-title">Nominee & Guardian (हकवाला / संरक्षक)</h3>
-          </div>
-          <div className="form-grid">
-            <div className="detail-item"><strong>Nominee (English):</strong><br/>{client.nomineesNameEnglish || '—'}</div>
-            <div className="detail-item"><strong>Nominee (Nepali) / हकवालाको नाम:</strong><br/>{client.nomineesNameNepali || '—'}</div>
-            <div className="detail-item"><strong>Nominee Relation / हकवालाको नाता:</strong><br/>{nomineeRelations[client.nomineesRelation] || client.nomineesRelation || '—'}</div>
-            <div className="detail-item"><strong>Guardian (English):</strong><br/>{client.guardiansNameEnglish || '—'}</div>
-            <div className="detail-item"><strong>Guardian (Nepali) / संरक्षकको नाम:</strong><br/>{client.guardiansNameNepali || '—'}</div>
-          </div>
-        </div>
 
         <div className="form-section-card">
           <div className="form-section-header">

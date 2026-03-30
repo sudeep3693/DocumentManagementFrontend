@@ -157,7 +157,7 @@ const ClientManagement = () => {
             <input
               type="text"
               className="modern-search-input"
-              placeholder="Search clients by name, account number..."
+              placeholder="Search clients by name, membership ID..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               disabled={showDeleted}
@@ -187,7 +187,6 @@ const ClientManagement = () => {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Account No</th>
                 <th>Membership ID</th>
                 <th>Name</th>
                 <th>Phone</th>
@@ -208,7 +207,6 @@ const ClientManagement = () => {
               ) : (
                 clients.map((client) => (
                   <tr key={client.id}>
-                    <td>{client.accountNumber}</td>
                     <td>{client.membershipId}</td>
                     <td>{client.fullNameEnglish || client.fullNameNepali}</td>
                     <td>{client.mobileNumber}</td>

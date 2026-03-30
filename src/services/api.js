@@ -124,7 +124,7 @@ export const getClientsApi = async (params) => {
 };
 
 export const bulkImportClientsApi = async (formData) => {
-  const response = await axiosInstance.post('/api/v1/clients/bulk-import', formData, {
+  const response = await axiosInstance.post('/api/v1/clients/bulk/import', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
     },
@@ -198,6 +198,13 @@ export const updateLoanApi = async (loanId, loanData) => {
 
 export const getLoansByClientIdApi = async (clientId, params) => {
   const response = await axiosInstance.get(`/api/v1/loans/client/${clientId}`, { params });
+  return response.data;
+};
+
+export const downloadTamsukApi = async (loanId) => {
+  const response = await axiosInstance.get(`/api/v1/pdf/tamsuk/${loanId}`, {
+    responseType: 'text',
+  });
   return response.data;
 };
 

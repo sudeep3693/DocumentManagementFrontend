@@ -5,19 +5,40 @@ import { searchClientsApi, getCodeValuesApi, addLoanApi, getClientByIdApi, getLo
 import NepaliDatePickerWrapper from '../components/NepaliDatePickerWrapper';
 import './ClientLayout.css';
 
-// Strict Nepali numerals validation
-const isValidNepaliNumeralWithDotComma = (val) => {
-  if (!val) return true;
-  return /^[०-९.,]+$/.test(val);
+// Numeral conversion helpers
+const NEPALI_DIGITS = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
+
+const nepaliToEnglish = (str) => {
+  if (!str && str !== 0) return '';
+  return String(str).replace(/[०-९]/g, (ch) => String(NEPALI_DIGITS.indexOf(ch)));
 };
 
-const isValidNepaliNumeralComma = (val) => {
+const englishToNepali = (str) => {
+  if (!str && str !== 0) return '';
+  return String(str).replace(/[0-9]/g, (ch) => NEPALI_DIGITS[parseInt(ch)]);
+};
+
+// English-only input validators
+// Allows digits + optional decimal point (for rate/amount)
+const isValidEnglishDecimal = (val) => {
   if (!val) return true;
-  return /^[०-९,]+$/.test(val);
+  return /^[0-9]*\.?[0-9]*$/.test(val);
+};
+
+// Allows digits, commas, and one decimal point (currency format)
+const isValidEnglishCurrency = (val) => {
+  if (!val) return true;
+  return /^[0-9,]*\.?[0-9]*$/.test(val);
+};
+
+// Allows digits only (whole numbers)
+const isValidEnglishInteger = (val) => {
+  if (!val) return true;
+  return /^[0-9]*$/.test(val);
 };
 
 // Simple reusable component to search and select a client
-const ClientSearchSelect = ({ label, onSelect, error, selectedClientDisplay }) => {
+const ClientSearchSelect = ({ label, onSelect, error, selectedClientDisplay, incomplete, incompleteClientId, onEditClient }) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -42,9 +63,41 @@ const ClientSearchSelect = ({ label, onSelect, error, selectedClientDisplay }) =
     <div className="form-group" style={{ position: 'relative' }}>
       <label>{label}</label>
       {selectedClientDisplay ? (
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          <input type="text" value={selectedClientDisplay} readOnly className="form-control" />
-          <button type="button" className="btn btn-sm btn-outline" onClick={() => onSelect(null)}>Change</button>
+        <div>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <input
+              type="text"
+              value={selectedClientDisplay}
+              readOnly
+              className="form-control"
+              style={incomplete ? { border: '2px solid #dc2626', borderRadius: '6px' } : {}}
+            />
+            <button type="button" className="btn btn-sm btn-outline" onClick={() => onSelect(null)}>Change</button>
+          </div>
+          {incomplete && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '0.5rem',
+              marginTop: '0.4rem', padding: '0.4rem 0.75rem',
+              background: '#fef2f2', border: '1px solid #fca5a5',
+              borderRadius: '6px', fontSize: '0.85rem', color: '#dc2626'
+            }}>
+              <span style={{ fontSize: '1rem', fontWeight: 'bold' }}>!</span>
+              <span>Client details are incomplete. Please complete before creating a loan.</span>
+              {incompleteClientId && onEditClient && (
+                <button
+                  type="button"
+                  onClick={() => onEditClient(incompleteClientId)}
+                  style={{
+                    marginLeft: 'auto', padding: '2px 10px', fontSize: '0.8rem',
+                    background: '#dc2626', color: '#fff', border: 'none',
+                    borderRadius: '4px', cursor: 'pointer'
+                  }}
+                >
+                  ✏️ Edit Client
+                </button>
+              )}
+            </div>
+          )}
         </div>
       ) : (
         <>
@@ -79,6 +132,9 @@ const ClientSearchSelect = ({ label, onSelect, error, selectedClientDisplay }) =
                     }}
                   >
                     <strong>{c.fullNameNepali || c.fullNameEnglish}</strong> ({c.membershipId || c.accountNumber})
+                    {c.completed === false && (
+                      <span style={{ marginLeft: '0.5rem', color: '#dc2626', fontSize: '0.8rem', fontWeight: 'bold' }}>⚠ Incomplete</span>
+                    )}
                   </li>
                 ))
               ) : (
@@ -151,6 +207,8 @@ const LoanFormPage = () => {
 
   const [form, setForm] = useState(emptyForm);
   const [selectedMainClientName, setSelectedMainClientName] = useState('');
+  const [selectedMainClientIncomplete, setSelectedMainClientIncomplete] = useState(false);
+  const [selectedMainClientId, setSelectedMainClientId] = useState(null);
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(isEditing);
@@ -267,14 +325,14 @@ const LoanFormPage = () => {
           const mappedForm = {
             clientId: loanData.clientsDetails?.id || loanData.clientId || '',
             purposeOfLoan: loanData.purposeOfLoan || '', 
-            interestRate: loanData.interestRate || '',
-            loanAmount: loanData.loanAmount || '',
+            interestRate: nepaliToEnglish(loanData.interestRate),
+            loanAmount: nepaliToEnglish(loanData.loanAmount),
             interestRateFormat: loanData.interestFormat || loanData.interestRateFormat || 0,
-            loanRemainingToBePaid: loanData.loanRemainingToBePaid || '',
+            loanRemainingToBePaid: nepaliToEnglish(loanData.loanRemainingToBePaid),
             repayDateBs: loanData.repayDate?.bsDate || loanData.repayDateBs || '',
             dhanjamaniList: (loanData.dhanjamaniDetails || []).map(d => ({
               clientId: d.clientId || d.id || '',
-              amount: d.amountOfDhanjamani || d.amount || '',
+              amount: nepaliToEnglish(d.amountOfDhanjamani || d.amount),
               _details: {
                 name: d.nameNepali || '',
                 membershipId: d.membershipId || '',
@@ -299,10 +357,15 @@ const LoanFormPage = () => {
           setForm(mappedForm);
 
           if (loanData.clientsDetails) {
-            setSelectedMainClientName(`${loanData.clientsDetails.fullNameNepali || loanData.clientsDetails.fullNameEnglish} (${loanData.clientsDetails.membershipId || loanData.clientsDetails.accountNumber})`);
+            const cd = loanData.clientsDetails;
+            setSelectedMainClientName(`${cd.fullNameNepali || cd.fullNameEnglish} (${cd.membershipId || cd.accountNumber})`);
+            setSelectedMainClientIncomplete(cd.completed === false);
+            setSelectedMainClientId(cd.id);
           } else if (mappedForm.clientId) {
             getClientByIdApi(mappedForm.clientId).then(c => {
                setSelectedMainClientName(`${c.fullNameNepali || c.fullNameEnglish} (${c.membershipId || c.accountNumber})`);
+               setSelectedMainClientIncomplete(c.completed === false);
+               setSelectedMainClientId(c.id);
             }).catch(() => {});
           }
         }
@@ -342,15 +405,16 @@ const LoanFormPage = () => {
   const handleMainChange = (e, validationType) => {
     const { name, value } = e.target;
 
-    if (validationType === 'dotcomma' && !isValidNepaliNumeralWithDotComma(value)) return;
-    if (validationType === 'comma' && !isValidNepaliNumeralComma(value)) return;
+    if (validationType === 'currency' && !isValidEnglishCurrency(value)) return;
+    if (validationType === 'decimal' && !isValidEnglishDecimal(value)) return;
+    if (validationType === 'integer' && !isValidEnglishInteger(value)) return;
 
     setForm(p => ({ ...p, [name]: value }));
     if (errors[name]) setErrors(p => ({ ...p, [name]: null }));
   };
 
   const handleDhanjamaniChange = (index, field, value) => {
-    if (field === 'amount' && !isValidNepaliNumeralWithDotComma(value)) return;
+    if (field === 'amount' && !isValidEnglishCurrency(value)) return;
     const newList = [...form.dhanjamaniList];
     newList[index][field] = value;
     setForm(p => ({ ...p, dhanjamaniList: newList }));
@@ -478,22 +542,25 @@ const LoanFormPage = () => {
 
     setSaving(true);
 
-    // Setting paid period (pay format) to Long
+    // Convert English numerals to Nepali before sending to backend
     const payload = {
       ...form,
       purposeOfLoan: Number(form.purposeOfLoan),
       interestRateFormat: form.interestRateFormat ? Number(form.interestRateFormat) : 0,
+      interestRate: englishToNepali(form.interestRate),
+      loanAmount: englishToNepali(String(form.loanAmount).replace(/,/g, '')),
+      loanRemainingToBePaid: form.loanRemainingToBePaid ? englishToNepali(String(form.loanRemainingToBePaid).replace(/,/g, '')) : null,
       repayDate: { 
         bsDate: typeof form.repayDateBs === 'object' ? form.repayDateBs.bsDate : form.repayDateBs, 
         adDate: typeof form.repayDateBs === 'object' ? form.repayDateBs.adDate : (originalLoan?.repayDateAd || null) 
       },
       dhanjamaniList: form.dhanjamaniList.map(({ _details, ...d }) => ({
         clientId: d.clientId ? Number(d.clientId) : 0,
-        amount: String(d.amount)
+        amount: englishToNepali(String(d.amount).replace(/,/g, ''))
       })),
       sakshiList: form.sakshiList.map(({ _isExisting, ...s }) => ({
         clientId: s.clientId ? Number(s.clientId) : 0,
-        age: String(s.age || '०'),
+        age: s.age ? englishToNepali(String(s.age)) : '०',
         fullNameNepali: s.fullNameNepali || '',
         province: s.province ? Number(s.province) : 0,
         district: s.district ? Number(s.district) : 0,
@@ -542,18 +609,31 @@ const LoanFormPage = () => {
             <div className="form-group" style={{ gridColumn: '1 / -1' }}>
               <ClientSearchSelect
                 label="Client (ऋणी) *"
-                onSelect={(c) => {
+                onSelect={async (c) => {
                   if (c) {
                     setForm(p => ({ ...p, clientId: c.id }));
                     setSelectedMainClientName(`${c.fullNameNepali || c.fullNameEnglish} (${c.membershipId || c.accountNumber})`);
+                    setSelectedMainClientId(c.id);
                     if (errors.clientId) setErrors(p => ({ ...p, clientId: null }));
+                    // Fetch full client to check completed flag
+                    try {
+                      const full = await getClientByIdApi(c.id);
+                      setSelectedMainClientIncomplete(full.completed === false);
+                    } catch {
+                      setSelectedMainClientIncomplete(false);
+                    }
                   } else {
                     setForm(p => ({ ...p, clientId: '' }));
                     setSelectedMainClientName('');
+                    setSelectedMainClientIncomplete(false);
+                    setSelectedMainClientId(null);
                   }
                 }}
                 error={errors.clientId}
                 selectedClientDisplay={selectedMainClientName}
+                incomplete={selectedMainClientIncomplete}
+                incompleteClientId={selectedMainClientId}
+                onEditClient={(clientId) => navigate(`/clients/${clientId}/edit`)}
               />
             </div>
 
@@ -568,13 +648,13 @@ const LoanFormPage = () => {
 
             <div className="form-group">
               <label>Interest Rate (% ब्याज दर) *</label>
-              <input name="interestRate" value={form.interestRate} onChange={(e) => handleMainChange(e, 'dotcomma')} placeholder="e.g. १५.५" />
+              <input name="interestRate" value={form.interestRate} onChange={(e) => handleMainChange(e, 'decimal')} placeholder="e.g. 15.5" />
               {errors.interestRate && <span className="form-error">{errors.interestRate}</span>}
             </div>
 
             <div className="form-group">
               <label>Loan Amount (कर्जा रकम) *</label>
-              <input name="loanAmount" value={form.loanAmount} onChange={(e) => handleMainChange(e, 'dotcomma')} placeholder="e.g. २,५०,०००.५०" />
+              <input name="loanAmount" value={form.loanAmount} onChange={(e) => handleMainChange(e, 'currency')} placeholder="e.g. 250,000.50" />
               {errors.loanAmount && <span className="form-error">{errors.loanAmount}</span>}
             </div>
 
@@ -588,7 +668,7 @@ const LoanFormPage = () => {
 
             <div className="form-group">
               <label>Remaining Amount (बाँकी रकम)</label>
-              <input name="loanRemainingToBePaid" value={form.loanRemainingToBePaid} onChange={(e) => handleMainChange(e, 'dotcomma')} placeholder="e.g. १,५०,०००" />
+              <input name="loanRemainingToBePaid" value={form.loanRemainingToBePaid} onChange={(e) => handleMainChange(e, 'currency')} placeholder="e.g. 150,000" />
             </div>
 
             <div className="form-group">
@@ -599,7 +679,6 @@ const LoanFormPage = () => {
           </div>
         </div>
 
-        {/* Dhanjamani Section */}
         <div className="form-section-card">
           <div className="form-section-header" style={{ display: 'flex', justifyContent: 'space-between' }}>
             <h3 className="form-section-title">Dhanjamani Details (धनजमानी विवरण) *</h3>
@@ -625,7 +704,7 @@ const LoanFormPage = () => {
                 </div>
                 <div className="form-group">
                   <label>Amount (रकम) *</label>
-                  <input value={dj.amount} onChange={(e) => handleDhanjamaniChange(index, 'amount', e.target.value)} placeholder="e.g. ५०,०००" />
+                  <input value={dj.amount} onChange={(e) => handleDhanjamaniChange(index, 'amount', e.target.value)} placeholder="e.g. 50,000" />
                   {errors[`dj_${index}_amount`] && <span className="form-error">{errors[`dj_${index}_amount`]}</span>}
                 </div>
               </div>

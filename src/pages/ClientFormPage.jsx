@@ -13,11 +13,57 @@ const nepaliToEnglishDigits = (str) => {
   return str.replace(/[०-९]/g, (ch) => NEPALI_DIGITS.indexOf(ch).toString());
 };
 
-// Validate that input only contains English digits, Nepali digits, and optionally a decimal point
-const isValidNepaliEnglishNumeral = (val, allowDecimal = false) => {
+const englishToNepaliDigits = (str) => {
+  if (!str || typeof str !== 'string') return str;
+  return str.replace(/[0-9]/g, (ch) => NEPALI_DIGITS[parseInt(ch)]);
+};
+
+// Validate that input only contains English digits and optionally a decimal point
+const isValidEnglishNumeral = (val, allowDecimal = false) => {
   if (!val) return true;
-  const pattern = allowDecimal ? /^[0-9०-९.]+$/ : /^[0-9०-९]+$/;
+  const pattern = allowDecimal ? /^[0-9.]+$/ : /^[0-9]+$/;
   return pattern.test(val);
+};
+
+// Currency helpers — English numerals with comma thousands separator
+// Accepts digits, commas, and one decimal point: e.g. "1,500.00"
+const isValidCurrencyInput = (val) => {
+  if (!val) return true;
+  // Allow only digits, commas, and at most one decimal point
+  return /^[0-9,]*\.?[0-9]*$/.test(val);
+};
+
+// Format a raw number/string as "1,500.00" style (no trailing zeros forced)
+const formatCurrency = (val) => {
+  if (val === null || val === undefined || val === '') return '';
+  // Convert Nepali digits first using NEPALI_DIGITS, then strip commas
+  const clean = String(val)
+    .replace(/[\u0966-\u096f]/g, (ch) => String(NEPALI_DIGITS.indexOf(ch)))
+    .replace(/,/g, '');
+  const num = parseFloat(clean);
+  if (isNaN(num)) return '';
+  // Format with commas
+  return num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+};
+
+// Strip commas and return plain numeric string for API (BigDecimal compatible)
+const parseCurrencyToNumber = (val) => {
+  if (!val) return null;
+  const clean = String(val).replace(/,/g, '');
+  const num = parseFloat(clean);
+  return isNaN(num) ? null : num;
+};
+
+// Validates alphanumeric and basic punctuation (dash, slash) for house numbers
+const isValidNepaliEnglishNumeral = (val) => {
+  if (!val) return true;
+  return /^[\u0900-\u097Fa-zA-Z0-9\s/-]*$/.test(val);
+};
+
+// Validate Nepali alpha only
+const isNepaliAlphaOnly = (val) => {
+  if (!val) return true;
+  return /^[\u0900-\u0963\u0970-\u097F\s]*$/.test(val);
 };
 
 const calculateAge = (dateObj) => {
@@ -43,6 +89,8 @@ const CODE_IDS = {
   SPOUSE_TYPE: 56,
   NOMINEE_RELATION: 1003,
   GENDER: 1004,
+  MARITAL_STATUS: 1005,
+  CASTE: 1006,
 };
 
 const emptyAddress = {
@@ -53,16 +101,19 @@ const emptyAddress = {
   wardNo: '',
   toleName: '',
   houseNo: '',
+  sabikAddress: '',
 };
 
 const emptyForm = {
-  accountNumber: '',
   membershipId: '',
   shareAmount: '',
   shareNumber: '',
+  shareCertificateNumber: '',
   fullNameNepali: '',
   fullNameEnglish: '',
   gender: '',
+  maritalStatus: '',
+  castRecordId: '',
   spouseType: '',
   spouseNameNepali: '',
   spouseNameEnglish: '',
@@ -71,11 +122,6 @@ const emptyForm = {
   ancestorType: '',
   ancestorNameNepali: '',
   ancestorNameEnglish: '',
-  nomineesNameEnglish: '',
-  nomineesNameNepali: '',
-  nomineesRelation: '',
-  guardiansNameEnglish: '',
-  guardiansNameNepali: '',
   dateOfBirthBs: '',
   citizenshipNumber: '',
   citizenshipIssueDistrict: '',
@@ -108,7 +154,8 @@ const ClientFormPage = () => {
   const [loading, setLoading] = useState(isEditing);
   const [saving, setSaving] = useState(false);
 
-  const isMinor = form.dateOfBirthBs?.adDate ? calculateAge(form.dateOfBirthBs) < 16 : false;
+  const age = form.dateOfBirthBs?.adDate ? calculateAge(form.dateOfBirthBs) : null;
+  const isMinor = age !== null && age < 16;
 
   // General Dropdown options
   const [spouseTypes, setSpouseTypes] = useState([]);
@@ -116,6 +163,8 @@ const ClientFormPage = () => {
   const [nomineeRelations, setNomineeRelations] = useState([]);
   const [allDistricts, setAllDistricts] = useState([]);
   const [genders, setGenders] = useState([]);
+  const [maritalStatuses, setMaritalStatuses] = useState([]);
+  const [castRecords, setCastRecords] = useState([]);
 
   // Address Dropdown options
   const [provinces, setProvinces] = useState([]);
@@ -125,10 +174,54 @@ const ClientFormPage = () => {
   const [tMunicipalities, setTMunicipalities] = useState([]);
   const [wards, setWards] = useState([]);
 
+  // Semantic helpers – resolved after dropdowns load
+  // Find ID of a code entry by English codeValue (case-insensitive)
+  const findId = (list, val) => {
+    const entry = list.find(x => x.codeValue?.toLowerCase() === val.toLowerCase() || x.codeValueOptional?.toLowerCase() === val.toLowerCase());
+    return entry ? entry.id : null;
+  };
+
+  // Marital status IDs resolved from loaded lists
+  const marriedId   = findId(maritalStatuses, 'Married')   || null;
+  const unmarriedId = findId(maritalStatuses, 'Unmarried') || null;
+  const divorcedId  = findId(maritalStatuses, 'Divorced')  || null;
+
+  // Gender IDs
+  const maleId   = findId(genders, 'Male')   || null;
+  const femaleId = findId(genders, 'Female') || null;
+
+  // Ancestor type IDs (codeValue should be 'Grandfather' and 'Father-in-law' or similar)
+  const grandfatherId   = findId(ancestorTypes, 'Grandfather')   || findId(ancestorTypes, 'हजुरबुवा') || null;
+  const fatherInLawId   = findId(ancestorTypes, 'Father-in-law') || findId(ancestorTypes, 'ससुरा')   || null;
+
+  // Spouse type IDs
+  const wifeId    = findId(spouseTypes, 'Wife')    || findId(spouseTypes, 'पत्नी')   || null;
+  const husbandId = findId(spouseTypes, 'Husband') || findId(spouseTypes, 'पति')     || null;
+
+  const msId = form.maritalStatus ? Number(form.maritalStatus) : null;
+  const gId  = form.gender        ? Number(form.gender)        : null;
+
+  const isMarried   = msId && msId === marriedId;
+  const isUnmarried = msId && msId === unmarriedId;
+  const isDivorced  = msId && msId === divorcedId;
+  const isMale      = gId && gId === maleId;
+  const isFemale    = gId && gId === femaleId;
+
+  // Spouse fields disabled when unmarried
+  const spouseDisabled = isUnmarried;
+
+  // Suggested ancestorType based on rules (null means free choice)
+  const suggestedAncestorId = (() => {
+    if (isDivorced) return null; // free choice
+    if (isMarried && isMale)   return grandfatherId;
+    if (isMarried && isFemale) return fatherInLawId;
+    return null;
+  })();
+
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [prov, wardData, sTypes, aTypes, aDistricts, nRels, gTypes] = await Promise.all([
+        const [prov, wardData, sTypes, aTypes, aDistricts, nRels, gTypes, mTypes, cTypes] = await Promise.all([
           getCodeValuesApi(CODE_IDS.PROVINCE),
           getCodeValuesApi(CODE_IDS.WARD),
           getCodeValuesApi(CODE_IDS.SPOUSE_TYPE),
@@ -136,6 +229,8 @@ const ClientFormPage = () => {
           getCodeValuesApi(CODE_IDS.DISTRICT),
           getCodeValuesApi(CODE_IDS.NOMINEE_RELATION),
           getCodeValuesApi(CODE_IDS.GENDER),
+          getCodeValuesApi(CODE_IDS.MARITAL_STATUS),
+          getCodeValuesApi(CODE_IDS.CASTE),
         ]);
         const provincesList = extractArray(prov);
         const wardsList = extractArray(wardData);
@@ -144,6 +239,8 @@ const ClientFormPage = () => {
         const allDistrictsList = extractArray(aDistricts);
         const nomineeRelationsList = extractArray(nRels);
         const gendersList = extractArray(gTypes);
+        const maritalList = extractArray(mTypes);
+        const casteList = extractArray(cTypes);
 
         setProvinces(provincesList);
         setWards(wardsList);
@@ -152,6 +249,8 @@ const ClientFormPage = () => {
         setAllDistricts(allDistrictsList);
         setNomineeRelations(nomineeRelationsList);
         setGenders(gendersList);
+        setMaritalStatuses(maritalList);
+        setCastRecords(casteList);
 
         if (isEditing) {
           const data = await getClientByIdApi(id);
@@ -198,10 +297,14 @@ const ClientFormPage = () => {
           setForm({
             ...emptyForm,
             ...data,
+            shareAmount: formatCurrency(data.shareAmount),
+            shareNumber: nepaliToEnglishDigits(String(data.shareNumber || '')),
+            shareCertificateNumber: nepaliToEnglishDigits(String(data.shareCertificateNumber || '')),
             gender: resolve(gendersList, data.gender),
+            maritalStatus: resolve(maritalList, data.maritalStatus),
+            castRecordId: resolve(casteList, data.castRecord || data.castRecordId),
             spouseType: resolve(spouseTypesList, data.spouseType),
             ancestorType: resolve(ancestorTypesList, data.ancestorType),
-            nomineesRelation: resolve(nomineeRelationsList, data.nomineesRelation),
             citizenshipIssueDistrict: resolve(allDistrictsList, data.citizenshipIssueDistrict),
             dateOfBirthBs: data.dateOfBirth || null,
             citizenshipIssueDateBs: data.citizenshipIssueDate || null,
@@ -262,7 +365,51 @@ const ClientFormPage = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm(prev => ({ ...prev, [name]: value }));
+
+    setForm(prev => {
+      const updated = { ...prev, [name]: value };
+
+      // Auto-set spouseType when marital status changes
+      if (name === 'maritalStatus') {
+        const newMs = value ? Number(value) : null;
+        const curG  = prev.gender ? Number(prev.gender) : null;
+        if (newMs === marriedId && curG === maleId && wifeId) {
+          updated.spouseType = String(wifeId);
+        } else if (newMs === marriedId && curG === femaleId && husbandId) {
+          updated.spouseType = String(husbandId);
+        } else if (newMs === unmarriedId) {
+          updated.spouseType = '';
+          updated.spouseNameNepali = '';
+          updated.spouseNameEnglish = '';
+        }
+        // Auto-set ancestorType
+        if (newMs === marriedId && curG === maleId && grandfatherId) {
+          updated.ancestorType = String(grandfatherId);
+        } else if (newMs === marriedId && curG === femaleId && fatherInLawId) {
+          updated.ancestorType = String(fatherInLawId);
+        }
+      }
+
+      // Auto-set spouseType when gender changes
+      if (name === 'gender') {
+        const newG  = value ? Number(value) : null;
+        const curMs = prev.maritalStatus ? Number(prev.maritalStatus) : null;
+        if (curMs === marriedId && newG === maleId && wifeId) {
+          updated.spouseType = String(wifeId);
+        } else if (curMs === marriedId && newG === femaleId && husbandId) {
+          updated.spouseType = String(husbandId);
+        }
+        // Auto-set ancestorType
+        if (curMs === marriedId && newG === maleId && grandfatherId) {
+          updated.ancestorType = String(grandfatherId);
+        } else if (curMs === marriedId && newG === femaleId && fatherInLawId) {
+          updated.ancestorType = String(fatherInLawId);
+        }
+      }
+
+      return updated;
+    });
+
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: null }));
   };
 
@@ -304,29 +451,30 @@ const ClientFormPage = () => {
 
   const validate = () => {
     const newErrs = {};
-    if (!form.accountNumber) newErrs.accountNumber = 'Required';
     if (!form.membershipId) newErrs.membershipId = 'Required';
     if (!form.fullNameNepali) newErrs.fullNameNepali = 'Required';
     if (!form.fullNameEnglish) newErrs.fullNameEnglish = 'Required';
     if (!form.gender) newErrs.gender = 'Required';
+    if (!form.maritalStatus) newErrs.maritalStatus = 'Required';
     if (!form.fatherNameEnglish) newErrs.fatherNameEnglish = 'Required';
     if (!form.fatherNameNepali) newErrs.fatherNameNepali = 'Required';
     if (!form.ancestorType) newErrs.ancestorType = 'Required';
     if (!form.ancestorNameNepali) newErrs.ancestorNameNepali = 'Required';
     if (!form.ancestorNameEnglish) newErrs.ancestorNameEnglish = 'Required';
-    if (!form.dateOfBirthBs) newErrs.dateOfBirthBs = 'Required';
     if (!form.citizenshipNumber) newErrs.citizenshipNumber = 'Required';
     if (!form.citizenshipIssueDistrict) newErrs.citizenshipIssueDistrict = 'Required';
-    if (!form.citizenshipIssueDateBs) newErrs.citizenshipIssueDateBs = 'Required';
     if (!form.dateOfMembershipBs) newErrs.dateOfMembershipBs = 'Required';
     if (!form.mobileNumber) newErrs.mobileNumber = 'Required';
 
+    // Spouse required when married
+    if (isMarried) {
+      if (!form.spouseNameNepali) newErrs.spouseNameNepali = 'Required when married';
+      if (!form.spouseNameEnglish) newErrs.spouseNameEnglish = 'Required when married';
+    }
+
+    // Block minors
     if (isMinor) {
-      if (!form.guardiansNameNepali) newErrs.guardiansNameNepali = 'Required';
-      if (!form.guardiansNameEnglish) newErrs.guardiansNameEnglish = 'Required';
-      if (!form.nomineesNameNepali) newErrs.nomineesNameNepali = 'Required';
-      if (!form.nomineesNameEnglish) newErrs.nomineesNameEnglish = 'Required';
-      if (!form.nomineesRelation) newErrs.nomineesRelation = 'Required';
+      newErrs._minor = 'Client must be at least 16 years old to submit';
     }
 
     form.addresses.forEach((addr, i) => {
@@ -350,15 +498,17 @@ const ClientFormPage = () => {
 
     setSaving(true);
     const payload = { ...form };
-    // Convert Nepali digits to English before parsing as Number
-    payload.shareAmount = form.shareAmount ? Number(nepaliToEnglishDigits(String(form.shareAmount))) : null;
-    payload.shareNumber = form.shareNumber ? Number(nepaliToEnglishDigits(String(form.shareNumber))) : null;
+    // shareAmount sent as BigDecimal (plain number), shareNumber/shareCertificateNumber as Nepali numerals
+    payload.shareAmount = parseCurrencyToNumber(form.shareAmount);
+    payload.shareNumber = form.shareNumber ? englishToNepaliDigits(String(form.shareNumber)) : null;
+    payload.shareCertificateNumber = form.shareCertificateNumber ? englishToNepaliDigits(String(form.shareCertificateNumber)) : null;
     
     // Parse Long fields
     payload.gender = form.gender ? Number(form.gender) : null;
     payload.spouseType = form.spouseType ? Number(form.spouseType) : null;
     payload.ancestorType = form.ancestorType ? Number(form.ancestorType) : null;
-    payload.nomineesRelation = form.nomineesRelation ? Number(form.nomineesRelation) : null;
+    payload.maritalStatus = form.maritalStatus ? Number(form.maritalStatus) : null;
+    payload.castRecordId = form.castRecordId ? Number(form.castRecordId) : null;
     payload.citizenshipIssueDistrict = form.citizenshipIssueDistrict ? Number(form.citizenshipIssueDistrict) : null;
 
     const extractDateObj = (dateField) => {
@@ -417,18 +567,13 @@ const ClientFormPage = () => {
           </div>
           <div className="form-grid">
             <div className="form-group">
-              <label>Account Number *</label>
-              <input name="accountNumber" value={form.accountNumber} onChange={handleChange} disabled={isEditing} />
-              {errors.accountNumber && <span className="form-error">{errors.accountNumber}</span>}
-            </div>
-            <div className="form-group">
               <label>Membership ID *</label>
               <input name="membershipId" value={form.membershipId} onChange={handleChange} disabled={isEditing} />
               {errors.membershipId && <span className="form-error">{errors.membershipId}</span>}
             </div>
             <div className="form-group">
               <label>पूरा नाम (Full Name Nepali) *</label>
-              <input name="fullNameNepali" value={form.fullNameNepali} onChange={handleChange} />
+              <input name="fullNameNepali" value={form.fullNameNepali} onChange={(e) => { if (isNepaliAlphaOnly(e.target.value)) handleChange(e); }} />
               {errors.fullNameNepali && <span className="form-error">{errors.fullNameNepali}</span>}
             </div>
             <div className="form-group">
@@ -445,9 +590,26 @@ const ClientFormPage = () => {
               {errors.gender && <span className="form-error">{errors.gender}</span>}
             </div>
             <div className="form-group">
-              <label>जन्म मिति / Date of Birth (BS) *</label>
+              <label>Marital Status / वैवाहिक स्थिति *</label>
+              <select name="maritalStatus" value={form.maritalStatus} onChange={handleChange}>
+                <option value="">-- Select --</option>
+                {maritalStatuses.map(m => <option key={m.id} value={m.id}>{m.codeValueOptional || m.codeValue}</option>)}
+              </select>
+              {errors.maritalStatus && <span className="form-error">{errors.maritalStatus}</span>}
+            </div>
+            <div className="form-group">
+              <label>Caste / जाति</label>
+              <select name="castRecordId" value={form.castRecordId} onChange={handleChange}>
+                <option value="">-- Select --</option>
+                {castRecords.map(c => <option key={c.id} value={c.id}>{c.codeValueOptional || c.codeValue}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>जन्म मिति / Date of Birth (BS)</label>
               <NepaliDatePickerWrapper name="dateOfBirthBs" value={form.dateOfBirthBs?.bsDate || form.dateOfBirthBs || ''} className="form-control" onChange={handleChange} />
-              {errors.dateOfBirthBs && <span className="form-error">{errors.dateOfBirthBs}</span>}
+              {isMinor && (
+                <span className="form-error">⚠ Client is under 16 — cannot submit until at least 16 years old</span>
+              )}
             </div>
             <div className="form-group">
               <label>सदस्यता मिति / Membership Date (BS) *</label>
@@ -474,11 +636,26 @@ const ClientFormPage = () => {
           <div className="form-grid">
             <div className="form-group">
               <label>Share Amount / शेयर रकम</label>
-              <input type="text" name="shareAmount" value={form.shareAmount} onChange={(e) => { if (isValidNepaliEnglishNumeral(e.target.value, true)) handleChange(e); }} placeholder="e.g. 400 or ४००" />
+              <input
+                type="text"
+                name="shareAmount"
+                value={form.shareAmount}
+                onChange={(e) => { if (isValidCurrencyInput(e.target.value)) handleChange(e); }}
+                onBlur={(e) => {
+                  // Re-format with commas on blur
+                  const formatted = formatCurrency(e.target.value);
+                  setForm(prev => ({ ...prev, shareAmount: formatted }));
+                }}
+                placeholder="e.g. 1,500.00"
+              />
             </div>
             <div className="form-group">
               <label>Share Number / शेयर कित्ता</label>
-              <input type="text" name="shareNumber" value={form.shareNumber} onChange={(e) => { if (isValidNepaliEnglishNumeral(e.target.value)) handleChange(e); }} placeholder="e.g. 4 or ४" />
+              <input type="text" name="shareNumber" value={form.shareNumber} onChange={(e) => { if (isValidEnglishNumeral(e.target.value)) handleChange(e); }} placeholder="e.g. 4" />
+            </div>
+            <div className="form-group">
+              <label>Share Certificate No. / शेयर प्रमाणपत्र नं</label>
+              <input type="text" name="shareCertificateNumber" value={form.shareCertificateNumber} onChange={(e) => { if (isValidEnglishNumeral(e.target.value)) handleChange(e); }} placeholder="e.g. 1001" />
             </div>
           </div>
         </div>
@@ -518,7 +695,7 @@ const ClientFormPage = () => {
           <div className="form-grid">
             <div className="form-group">
               <label>बुबाको नाम (Father Name Nepali) *</label>
-              <input name="fatherNameNepali" value={form.fatherNameNepali} onChange={handleChange} />
+              <input name="fatherNameNepali" value={form.fatherNameNepali} onChange={(e) => { if (isNepaliAlphaOnly(e.target.value)) handleChange(e); }} />
               {errors.fatherNameNepali && <span className="form-error">{errors.fatherNameNepali}</span>}
             </div>
             <div className="form-group">
@@ -527,33 +704,61 @@ const ClientFormPage = () => {
               {errors.fatherNameEnglish && <span className="form-error">{errors.fatherNameEnglish}</span>}
             </div>
             <div className="form-group">
-              <label>Spouse Type / पति/पत्नी प्रकार</label>
-              <select name="spouseType" value={form.spouseType} onChange={handleChange}>
+              <label>Spouse Type / पति/पत्नी प्रकार {isMarried && '*'}</label>
+              <select
+                name="spouseType"
+                value={form.spouseType}
+                onChange={handleChange}
+                disabled={spouseDisabled}
+              >
                 <option value="">-- Select --</option>
                 {spouseTypes.map(s => <option key={s.id} value={s.id}>{s.codeValueOptional || s.codeValue}</option>)}
               </select>
             </div>
             <div className="form-group">
-              <label>पति/पत्नीको नाम (Spouse Name Nepali)</label>
-              <input name="spouseNameNepali" value={form.spouseNameNepali} onChange={handleChange} />
+              <label>पति/पत्नीको नाम (Spouse Name Nepali) {isMarried && '*'}</label>
+              <input
+                name="spouseNameNepali"
+                value={form.spouseNameNepali}
+                onChange={(e) => { if (isNepaliAlphaOnly(e.target.value)) handleChange(e); }}
+                disabled={spouseDisabled}
+              />
+              {errors.spouseNameNepali && <span className="form-error">{errors.spouseNameNepali}</span>}
             </div>
             <div className="form-group">
-              <label>Spouse Name (English)</label>
-              <input name="spouseNameEnglish" value={form.spouseNameEnglish} onChange={handleChange} />
+              <label>Spouse Name (English) {isMarried && '*'}</label>
+              <input
+                name="spouseNameEnglish"
+                value={form.spouseNameEnglish}
+                onChange={handleChange}
+                disabled={spouseDisabled}
+              />
+              {errors.spouseNameEnglish && <span className="form-error">{errors.spouseNameEnglish}</span>}
             </div>
             <div className="form-group"></div>
 
             <div className="form-group">
-              <label>Ancestor Type / पुर्खा प्रकार *</label>
-              <select name="ancestorType" value={form.ancestorType} onChange={handleChange}>
+              <label>Ancestor Type / पुर्खा प्रकार *
+                {suggestedAncestorId && !isDivorced && (
+                  <span style={{ marginLeft: '0.4rem', fontSize: '0.78rem', color: '#6b7280', fontWeight: 'normal' }}>
+                    ({isMarried && isMale ? 'Grandfather' : isMarried && isFemale ? 'Father-in-law' : ''})
+                  </span>
+                )}
+              </label>
+              <select
+                name="ancestorType"
+                value={form.ancestorType}
+                onChange={handleChange}
+                disabled={!isDivorced && !!suggestedAncestorId}
+              >
                 <option value="">-- Select --</option>
                 {ancestorTypes.map(a => <option key={a.id} value={a.id}>{a.codeValueOptional || a.codeValue}</option>)}
               </select>
-               {errors.ancestorType && <span className="form-error">{errors.ancestorType}</span>}
+              {errors.ancestorType && <span className="form-error">{errors.ancestorType}</span>}
             </div>
             <div className="form-group">
               <label>पुर्खाको नाम (Ancestor Name Nepali) *</label>
-              <input name="ancestorNameNepali" value={form.ancestorNameNepali} onChange={handleChange} />
+              <input name="ancestorNameNepali" value={form.ancestorNameNepali} onChange={(e) => { if (isNepaliAlphaOnly(e.target.value)) handleChange(e); }} />
               {errors.ancestorNameNepali && <span className="form-error">{errors.ancestorNameNepali}</span>}
             </div>
             <div className="form-group">
@@ -564,42 +769,6 @@ const ClientFormPage = () => {
           </div>
         </div>
         
-        {/* Nominee & Guardian */}
-        <div className="form-section-card">
-          <div className="form-section-header">
-            <h3 className="form-section-title">Nominee & Guardian (हकवाला / संरक्षक)</h3>
-          </div>
-          <div className="form-grid">
-            <div className="form-group">
-              <label>हकवालाको नाम (Nominee Name Nepali) {isMinor && '*'}</label>
-              <input name="nomineesNameNepali" value={form.nomineesNameNepali} onChange={handleChange} />
-              {errors.nomineesNameNepali && <span className="form-error">{errors.nomineesNameNepali}</span>}
-            </div>
-            <div className="form-group">
-              <label>Nominee Name (English) {isMinor && '*'}</label>
-              <input name="nomineesNameEnglish" value={form.nomineesNameEnglish} onChange={handleChange} />
-              {errors.nomineesNameEnglish && <span className="form-error">{errors.nomineesNameEnglish}</span>}
-            </div>
-            <div className="form-group">
-              <label>Nominee Relation (हकवालाको नाता) {isMinor && '*'}</label>
-              <select name="nomineesRelation" value={form.nomineesRelation} onChange={handleChange}>
-                <option value="">-- Select --</option>
-                {nomineeRelations.map(n => <option key={n.id} value={n.id}>{n.codeValueOptional || n.codeValue}</option>)}
-              </select>
-              {errors.nomineesRelation && <span className="form-error">{errors.nomineesRelation}</span>}
-            </div>
-            <div className="form-group">
-              <label>संरक्षकको नाम (Guardian Name Nepali) {isMinor && '*'}</label>
-              <input name="guardiansNameNepali" value={form.guardiansNameNepali} onChange={handleChange} />
-              {errors.guardiansNameNepali && <span className="form-error">{errors.guardiansNameNepali}</span>}
-            </div>
-            <div className="form-group">
-              <label>Guardian Name (English) {isMinor && '*'}</label>
-              <input name="guardiansNameEnglish" value={form.guardiansNameEnglish} onChange={handleChange} />
-              {errors.guardiansNameEnglish && <span className="form-error">{errors.guardiansNameEnglish}</span>}
-            </div>
-          </div>
-        </div>
 
         {/* Permanent Address */}
         <div className="form-section-card">
@@ -646,7 +815,11 @@ const ClientFormPage = () => {
             </div>
             <div className="form-group">
               <label>House No / घर नं</label>
-              <input type="text" value={form.addresses[0].houseNo} onChange={(e) => { if (isValidNepaliEnglishNumeral(e.target.value)) handleAddressChange(0, 'houseNo', e.target.value); }} placeholder="e.g. ४४" />
+              <input type="text" value={form.addresses[0].houseNo} onChange={(e) => handleAddressChange(0, 'houseNo', e.target.value)} placeholder="e.g. 44" />
+            </div>
+            <div className="form-group">
+              <label>Sabik Address / साविक ठेगाना</label>
+              <input value={form.addresses[0].sabikAddress || ''} onChange={(e) => handleAddressChange(0, 'sabikAddress', e.target.value)} />
             </div>
           </div>
         </div>
@@ -699,7 +872,11 @@ const ClientFormPage = () => {
             </div>
             <div className="form-group">
               <label>House No / घर नं</label>
-              <input type="text" value={form.addresses[1].houseNo} onChange={(e) => { if (isValidNepaliEnglishNumeral(e.target.value)) handleAddressChange(1, 'houseNo', e.target.value); }} placeholder="e.g. ४४" />
+              <input type="text" value={form.addresses[1].houseNo} onChange={(e) => handleAddressChange(1, 'houseNo', e.target.value)} placeholder="e.g. 44" />
+            </div>
+            <div className="form-group">
+              <label>Sabik Address / साविक ठेगाना</label>
+              <input value={form.addresses[1].sabikAddress || ''} onChange={(e) => handleAddressChange(1, 'sabikAddress', e.target.value)} />
             </div>
           </div>
         </div>
@@ -707,7 +884,7 @@ const ClientFormPage = () => {
         {/* Footer Actions */}
         <div className="form-actions-footer">
           <button type="button" className="btn btn-outline" onClick={() => navigate('/clients')}>Cancel</button>
-          <button type="submit" className="btn btn-primary" disabled={saving}>
+          <button type="submit" className="btn btn-primary" disabled={saving || isMinor}>
             {saving ? 'Saving...' : isEditing ? 'Update Client' : 'Submit Application'}
           </button>
         </div>

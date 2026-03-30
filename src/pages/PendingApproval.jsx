@@ -25,7 +25,9 @@ const PendingApproval = () => {
             </p>
           </>
         )}
-        <button className="btn btn-outline" onClick={logout}>
+        <button className="btn btn-outline" onClick={async () => {
+          await logout();
+        }}>
           Logout
         </button>
       </div>

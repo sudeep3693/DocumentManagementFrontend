@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
+import { getCodeValuesApi } from '../../services/api';
+import { 
+  isValidEnglishName, 
+  isNepaliAlphaOnly, 
+  isValidEmailChar, 
+  isEnglishNumber 
+} from '../../utils/validation';
 
-const COOPERATIVE_TYPES = [
-  { value: 1, label: 'Savings' },
-  { value: 2, label: 'Credit' },
-  { value: 3, label: 'Multi-purpose' },
-  { value: 4, label: 'Agriculture' },
-  { value: 5, label: 'Other' },
-];
+const CODE_COOPERATIVE_TYPE = 57;
 
-const CompanyInfoStep = ({ data, prefill, formData, onNext }) => {
+const CompanyInfoStep = ({ data, prefill, formData, onNext, isEditMode }) => {
   const [form, setForm] = useState({
     nameEnglish: '',
     nameNepali: '',
@@ -18,6 +19,25 @@ const CompanyInfoStep = ({ data, prefill, formData, onNext }) => {
     contactNumber: '',
   });
   const [errors, setErrors] = useState({});
+  const [cooperativeTypes, setCooperativeTypes] = useState([]);
+
+  useEffect(() => {
+    getCodeValuesApi(CODE_COOPERATIVE_TYPE)
+      .then(res => {
+        const list = Array.isArray(res) ? res : (res?.content || res?.data || []);
+        setCooperativeTypes(list);
+
+        // Auto-map if cooperativeType is a label instead of an ID
+        setForm(prev => {
+          if (prev.cooperativeType && isNaN(prev.cooperativeType)) {
+            const match = list.find(t => t.codeValueOptional === prev.cooperativeType || t.codeValue === prev.cooperativeType);
+            if (match) return { ...prev, cooperativeType: String(match.id) };
+          }
+          return prev;
+        });
+      })
+      .catch((err) => console.error('Failed to load cooperative types', err));
+  }, []);
 
   useEffect(() => {
     // Priority: formData (user's local edits) > prefill (server data)
@@ -67,15 +87,31 @@ const CompanyInfoStep = ({ data, prefill, formData, onNext }) => {
     const errs = validate();
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
-    onNext({
-      ...form,
+    const payload = {
       cooperativeType: parseInt(form.cooperativeType, 10),
-    });
+      cooperativeRegisteredOffice: form.cooperativeRegisteredOffice,
+      email: form.email,
+      contactNumber: form.contactNumber,
+    };
+    if (!isEditMode) {
+      payload.nameEnglish = form.nameEnglish;
+      payload.nameNepali = form.nameNepali;
+    }
+    onNext(payload);
   };
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-    if (errors[e.target.name]) setErrors({ ...errors, [e.target.name]: '' });
+    const { name, value } = e.target;
+    
+    // Real-time filtering based on requirements
+    if (name === 'nameEnglish' && !isValidEnglishName(value)) return;
+    if (name === 'nameNepali' && !isNepaliAlphaOnly(value)) return;
+    if (name === 'cooperativeRegisteredOffice' && !isNepaliAlphaOnly(value)) return;
+    if (name === 'email' && !isValidEmailChar(value)) return;
+    if (name === 'contactNumber' && !isEnglishNumber(value)) return;
+
+    setForm({ ...form, [name]: value });
+    if (errors[name]) setErrors({ ...errors, [name]: '' });
   };
 
   return (
@@ -83,21 +119,21 @@ const CompanyInfoStep = ({ data, prefill, formData, onNext }) => {
       <h3>Cooperative Information</h3>
       <div className="form-grid">
         <div className="form-group">
-          <label htmlFor="nameEnglish">Name (English) *</label>
-          <input id="nameEnglish" name="nameEnglish" value={form.nameEnglish} onChange={handleChange} placeholder="e.g. Sahas Cooperative" />
+          <label htmlFor="nameEnglish">Name (English) {isEditMode ? '' : '*'}</label>
+          <input id="nameEnglish" name="nameEnglish" value={form.nameEnglish} onChange={handleChange} placeholder="e.g. Sahas Cooperative" disabled={isEditMode} />
           {errors.nameEnglish && <span className="form-error">{errors.nameEnglish}</span>}
         </div>
         <div className="form-group">
-          <label htmlFor="nameNepali">Name (Nepali) *</label>
-          <input id="nameNepali" name="nameNepali" value={form.nameNepali} onChange={handleChange} placeholder="e.g. सहस सहकारी" />
+          <label htmlFor="nameNepali">Name (Nepali) {isEditMode ? '' : '*'}</label>
+          <input id="nameNepali" name="nameNepali" value={form.nameNepali} onChange={handleChange} placeholder="e.g. सहस सहकारी" disabled={isEditMode} />
           {errors.nameNepali && <span className="form-error">{errors.nameNepali}</span>}
         </div>
         <div className="form-group">
           <label htmlFor="cooperativeType">Cooperative Type *</label>
           <select id="cooperativeType" name="cooperativeType" value={form.cooperativeType} onChange={handleChange}>
             <option value="">Select type</option>
-            {COOPERATIVE_TYPES.map((t) => (
-              <option key={t.value} value={t.value}>{t.label}</option>
+            {cooperativeTypes.map((t) => (
+              <option key={t.id} value={t.id}>{t.codeValueOptional || t.codeValue}</option>
             ))}
           </select>
           {errors.cooperativeType && <span className="form-error">{errors.cooperativeType}</span>}

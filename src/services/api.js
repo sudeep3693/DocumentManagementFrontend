@@ -2,10 +2,6 @@ import axiosInstance from './axiosInstance';
 import {
   getUsers,
   updateUser,
-  getClients,
-  addClient as addClientData,
-  updateClient as updateClientData,
-  deleteClient as deleteClientData,
 } from './mockData';
 
 // Simulate async API delay for mock endpoints
@@ -20,6 +16,11 @@ export const loginApi = async (username, password) => {
 
 export const refreshTokenApi = async (refreshToken) => {
   const response = await axiosInstance.post('/api/v1/auth/refresh', { refreshToken });
+  return response.data;
+};
+
+export const logoutApi = async () => {
+  const response = await axiosInstance.post('/api/v1/auth/logout');
   return response.data;
 };
 
@@ -115,30 +116,96 @@ export const rejectUserApi = async (userId) => {
   return userData;
 };
 
-// ==================== CLIENT SERVICES (Mock) ====================
+// ==================== CLIENT SERVICES (Real Backend) ====================
 
-export const getClientsApi = async (userId) => {
-  await delay();
-  return getClients(userId);
+export const getClientsApi = async (params) => {
+  const response = await axiosInstance.get('/api/v1/clients', { params });
+  return response.data;
+};
+
+export const bulkImportClientsApi = async (formData) => {
+  const response = await axiosInstance.post('/api/v1/clients/bulk/import', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data;
+};
+
+export const getClientByIdApi = async (clientId) => {
+  const response = await axiosInstance.get(`/api/v1/clients/${clientId}`);
+  return response.data;
 };
 
 export const addClientApi = async (clientData) => {
-  await delay();
-  return addClientData(clientData);
+  const response = await axiosInstance.post('/api/v1/clients', clientData);
+  return response.data;
 };
 
-export const updateClientApi = async (clientId, updates) => {
-  await delay();
-  const updated = updateClientData(clientId, updates);
-  if (!updated) throw new Error('Client not found');
-  return updated;
+export const updateClientApi = async (clientId, clientData) => {
+  const response = await axiosInstance.put(`/api/v1/clients/${clientId}`, clientData);
+  return response.data;
 };
 
 export const deleteClientApi = async (clientId) => {
-  await delay();
-  const success = deleteClientData(clientId);
-  if (!success) throw new Error('Client not found');
-  return { success: true };
+  const response = await axiosInstance.delete(`/api/v1/clients/${clientId}`);
+  return response.data;
+};
+
+export const searchClientsApi = async (params) => {
+  const response = await axiosInstance.get('/api/v1/clients/search', { params });
+  return response.data;
+};
+
+export const getDeletedClientsApi = async (params) => {
+  const response = await axiosInstance.get('/api/v1/clients/deleted', { params });
+  return response.data;
+};
+
+export const enableClientApi = async (clientId) => {
+  const response = await axiosInstance.patch(`/api/v1/clients/${clientId}/enable`);
+  return response.data;
+};
+
+export const downloadBulkImportTemplateApi = async () => {
+  const response = await axiosInstance.get('/api/v1/clients/bulk/download-template', {
+    responseType: 'blob',
+  });
+  return response.data;
+};
+
+// ==================== LOAN SERVICES (Real Backend) ====================
+
+export const addLoanApi = async (loanData) => {
+  const response = await axiosInstance.post('/api/v1/loans', loanData);
+  return response.data;
+};
+
+export const getLoansApi = async (params) => {
+  const response = await axiosInstance.get('/api/v1/loans', { params });
+  return response.data;
+};
+
+export const getLoanByIdApi = async (loanId) => {
+  const response = await axiosInstance.get(`/api/v1/loans/${loanId}`);
+  return response.data;
+};
+
+export const updateLoanApi = async (loanId, loanData) => {
+  const response = await axiosInstance.put(`/api/v1/loans/${loanId}`, loanData);
+  return response.data;
+};
+
+export const getLoansByClientIdApi = async (clientId, params) => {
+  const response = await axiosInstance.get(`/api/v1/loans/client/${clientId}`, { params });
+  return response.data;
+};
+
+export const downloadTamsukApi = async (loanId) => {
+  const response = await axiosInstance.get(`/api/v1/pdf/tamsuk/${loanId}`, {
+    responseType: 'text',
+  });
+  return response.data;
 };
 
 // ==================== PROFILE (Mock) ====================
@@ -149,4 +216,21 @@ export const updateProfileApi = async (userId, details) => {
   if (!updated) throw new Error('User not found');
   const { password: _, ...userData } = updated;
   return userData;
+};
+
+// ==================== AUTHENTICATED USER PROFILE (Real Backend) ====================
+
+export const getUserProfileApi = async () => {
+  const response = await axiosInstance.get('/api/v1/users/authenticated/profile');
+  return response.data;
+};
+
+export const updateUserProfileApi = async (data) => {
+  const response = await axiosInstance.put('/api/v1/users/authenticated/profile', data);
+  return response.data;
+};
+
+export const changeUserPasswordApi = async (data) => {
+  const response = await axiosInstance.post('/api/v1/users/authenticated/change-password', data);
+  return response.data;
 };

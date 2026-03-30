@@ -1,18 +1,32 @@
 import { useState, useEffect } from 'react';
+import { getCodeValuesApi } from '../../services/api';
+import NepaliDatePickerWrapper from '../NepaliDatePickerWrapper';
+import { isNepaliNumberWithSpecial } from '../../utils/validation';
 
-const DOCUMENT_TYPES = [
-  { value: 1, label: 'Registration Certificate' },
-  { value: 2, label: 'PAN Certificate' },
-  { value: 3, label: 'Tax Clearance' },
-  { value: 4, label: 'Audit Report' },
-  { value: 5, label: 'Other' },
-];
+const CODE_DOCUMENT_TYPE = 58;
 
 const emptyDoc = { documentType: '', documentNumber: '', documentIssueDate: '' };
 
 const DocumentInfoStep = ({ prefill, formData, onNext, onBack }) => {
   const [documents, setDocuments] = useState([{ ...emptyDoc }]);
   const [errors, setErrors] = useState([]);
+  const [documentTypes, setDocumentTypes] = useState([]);
+
+  useEffect(() => {
+    getCodeValuesApi(CODE_DOCUMENT_TYPE)
+      .then(res => {
+        const list = Array.isArray(res) ? res : (res?.content || res?.data || []);
+        setDocumentTypes(list);
+        setDocuments(prevDocs => prevDocs.map(doc => {
+          if (doc.documentType && isNaN(doc.documentType)) {
+            const match = list.find(t => t.codeValueOptional === doc.documentType || t.codeValue === doc.documentType);
+            if (match) return { ...doc, documentType: String(match.id) };
+          }
+          return doc;
+        }));
+      })
+      .catch((err) => console.error('Failed to load document types', err));
+  }, []);
 
   useEffect(() => {
     // Priority: formData (user's local edits) > prefill (server data)
@@ -43,6 +57,9 @@ const DocumentInfoStep = ({ prefill, formData, onNext, onBack }) => {
   };
 
   const handleChange = (index, field, value) => {
+    // Real-time filtering for document number
+    if (field === 'documentNumber' && !isNepaliNumberWithSpecial(value)) return;
+
     const updated = [...documents];
     updated[index] = { ...updated[index], [field]: value };
     setDocuments(updated);
@@ -51,6 +68,15 @@ const DocumentInfoStep = ({ prefill, formData, onNext, onBack }) => {
       updatedErrors[index] = { ...updatedErrors[index], [field]: '' };
       setErrors(updatedErrors);
     }
+  };
+
+  // Helper to filter already selected document types
+  const getAvailableTypes = (currentIndex) => {
+    const selectedTypes = documents
+      .map((doc, i) => i !== currentIndex ? doc.documentType : null)
+      .filter(Boolean);
+    
+    return documentTypes.filter(t => !selectedTypes.includes(String(t.id)));
   };
 
   const validate = () => {
@@ -100,8 +126,8 @@ const DocumentInfoStep = ({ prefill, formData, onNext, onBack }) => {
               <label>Type *</label>
               <select value={doc.documentType} onChange={(e) => handleChange(index, 'documentType', e.target.value)}>
                 <option value="">Select</option>
-                {DOCUMENT_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
+                {getAvailableTypes(index).map((t) => (
+                  <option key={t.id} value={t.id}>{t.codeValueOptional || t.codeValue}</option>
                 ))}
               </select>
               {errors[index]?.documentType && <span className="form-error">{errors[index].documentType}</span>}
@@ -113,7 +139,7 @@ const DocumentInfoStep = ({ prefill, formData, onNext, onBack }) => {
             </div>
             <div className="form-group">
               <label>Issue Date *</label>
-              <input type="date" value={doc.documentIssueDate} onChange={(e) => handleChange(index, 'documentIssueDate', e.target.value)} />
+              <NepaliDatePickerWrapper name="documentIssueDate" value={doc.documentIssueDate?.bsDate || doc.documentIssueDate || ''} className="form-control" onChange={(e) => handleChange(index, 'documentIssueDate', e.target.value)} />
               {errors[index]?.documentIssueDate && <span className="form-error">{errors[index].documentIssueDate}</span>}
             </div>
           </div>

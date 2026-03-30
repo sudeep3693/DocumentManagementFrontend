@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import PasswordStrengthIndicator, { validatePassword } from '../PasswordStrengthIndicator';
+import { hasNoNepali } from '../../utils/validation';
 
 const CredentialStep = ({ onNext, onBack }) => {
   const [form, setForm] = useState({
@@ -12,7 +14,7 @@ const CredentialStep = ({ onNext, onBack }) => {
     const errs = {};
     if (!form.username.trim()) errs.username = 'Username is required';
     if (!form.password) errs.password = 'Password is required';
-    else if (form.password.length < 8) errs.password = 'Password must be at least 8 characters';
+    else if (!validatePassword(form.password)) errs.password = 'Password does not meet requirements';
     if (!form.repeatPassword) errs.repeatPassword = 'Please confirm your password';
     else if (form.password !== form.repeatPassword) errs.repeatPassword = 'Passwords do not match';
     return errs;
@@ -31,8 +33,13 @@ const CredentialStep = ({ onNext, onBack }) => {
   };
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-    if (errors[e.target.name]) setErrors({ ...errors, [e.target.name]: '' });
+    const { name, value } = e.target;
+
+    // Block Nepali characters and numbers in username/password
+    if (!hasNoNepali(value)) return;
+
+    setForm({ ...form, [name]: value });
+    if (errors[name]) setErrors({ ...errors, [name]: '' });
   };
 
   return (
@@ -55,6 +62,11 @@ const CredentialStep = ({ onNext, onBack }) => {
           <input id="repeatPassword" name="repeatPassword" type="password" value={form.repeatPassword} onChange={handleChange} placeholder="Repeat password" />
           {errors.repeatPassword && <span className="form-error">{errors.repeatPassword}</span>}
         </div>
+        <PasswordStrengthIndicator
+          password={form.password}
+          confirmPassword={form.repeatPassword}
+          showMatch={true}
+        />
       </div>
       <div className="step-actions">
         <button type="button" className="btn btn-outline" onClick={onBack}>← Back</button>

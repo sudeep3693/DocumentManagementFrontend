@@ -1,129 +1,159 @@
 import { useState, useEffect } from 'react';
 import { getCodeValuesApi } from '../../services/api';
+import { isNepaliAlphaOnly, isNepaliNumberWithSpecial } from '../../utils/validation';
 
-const CODE_IDS = {
-  PROVINCE: 1001,
-  DISTRICT: 1002,
-  MUNICIPALITY: 1,
-  WARD: 2,
+const CODE_PROVINCE = 1001;
+const CODE_DISTRICT = 1002;
+const CODE_MUNI = 1;
+const CODE_WARD = 2;
+
+const extractArray = (data) => {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  if (data.data && Array.isArray(data.data)) return data.data;
+  if (data.content && Array.isArray(data.content)) return data.content;
+  if (data.data && data.data.content && Array.isArray(data.data.content)) return data.data.content;
+  return [];
 };
 
-const AddressInfoStep = ({ prefill, formData, onNext, onBack }) => {
-  const [form, setForm] = useState({
+const AddressInfoStep = ({ prefill, formData, data, onNext, onBack }) => {
+  const [address, setAddress] = useState({
     province: '',
     district: '',
     municipality: '',
-    tole: '',
     wardNo: '',
+    tole: '',
     houseNo: '',
   });
-  const [errors, setErrors] = useState({});
 
-  // Dropdown options
   const [provinces, setProvinces] = useState([]);
   const [districts, setDistricts] = useState([]);
   const [municipalities, setMunicipalities] = useState([]);
-  const [wardNumbers, setWardNumbers] = useState([]);
+  const [wards, setWards] = useState([]);
 
-  // Loading states
-  const [loadingProvinces, setLoadingProvinces] = useState(false);
-  const [loadingDistricts, setLoadingDistricts] = useState(false);
-  const [loadingMunicipalities, setLoadingMunicipalities] = useState(false);
-  const [loadingWards, setLoadingWards] = useState(false);
+  const [errors, setErrors] = useState({});
 
-  // Fetch provinces and ward numbers on mount (static lookups)
+  // Priority: formData (user's local edits) > prefill (server data) > data (parent component state)
   useEffect(() => {
-    const fetchProvinces = async () => {
-      setLoadingProvinces(true);
-      try {
-        const data = await getCodeValuesApi(CODE_IDS.PROVINCE);
-        setProvinces(data);
-      } catch (err) {
-        console.error('Failed to fetch provinces:', err);
-      } finally {
-        setLoadingProvinces(false);
-      }
-    };
-    const fetchWards = async () => {
-      setLoadingWards(true);
-      try {
-        const data = await getCodeValuesApi(CODE_IDS.WARD);
-        setWardNumbers(data);
-      } catch (err) {
-        console.error('Failed to fetch ward numbers:', err);
-      } finally {
-        setLoadingWards(false);
-      }
-    };
-    fetchProvinces();
-    fetchWards();
-  }, []);
+    let source = formData?.address || prefill?.address || data?.address;
 
-  // Prefill from saved data
-  useEffect(() => {
-    const source = formData?.address || prefill?.addressInfo;
     if (source) {
-      setForm({
-        province: source.province || '',
-        district: source.district || '',
-        municipality: source.municipality || '',
+      setAddress({
+        province: source.province != null ? String(source.province) : '',
+        district: source.district != null ? String(source.district) : '',
+        municipality: source.municipality != null ? String(source.municipality) : '',
+        wardNo: source.wardNo != null ? String(source.wardNo) : '',
         tole: source.tole || '',
-        wardNo: source.wardNo || '',
         houseNo: source.houseNo || '',
       });
     }
-  }, [prefill, formData]);
+  }, [prefill, formData, data]);
 
-  // Fetch districts when province changes
+  // Default fetch across non-dependent entities
   useEffect(() => {
-    if (!form.province) {
+    getCodeValuesApi(CODE_PROVINCE)
+      .then(res => {
+        const list = extractArray(res);
+        setProvinces(list);
+        setAddress((prev) => {
+          if (prev.province && isNaN(prev.province)) {
+            const match = list.find((p) => p.codeValueOptional === prev.province || p.codeValue === prev.province);
+            if (match) return { ...prev, province: String(match.id) };
+          }
+          return prev;
+        });
+      })
+      .catch((err) => console.error('Failed to load provinces', err));
+
+    getCodeValuesApi(CODE_WARD)
+      .then(res => {
+        const list = extractArray(res);
+        setWards(list);
+        setAddress((prev) => {
+          if (prev.wardNo && isNaN(prev.wardNo)) {
+            const match = list.find((w) => w.codeValueOptional === prev.wardNo || w.codeValue === prev.wardNo);
+            if (match) return { ...prev, wardNo: String(match.id) };
+          }
+          return prev;
+        });
+      })
+      .catch((err) => console.error('Failed to load wards', err));
+  }, []);
+
+  // Fetch cascading logic
+  useEffect(() => {
+    if (address.province && !isNaN(address.province)) {
+      getCodeValuesApi(CODE_DISTRICT, address.province)
+        .then(res => {
+          const list = extractArray(res);
+          setDistricts(list);
+          setAddress((prev) => {
+            if (prev.district && isNaN(prev.district)) {
+              const match = list.find((d) => d.codeValueOptional === prev.district || d.codeValue === prev.district);
+              if (match) return { ...prev, district: String(match.id) };
+            }
+            return prev;
+          });
+        })
+        .catch(err => console.error('Failed to load districts', err));
+    } else {
       setDistricts([]);
-      return;
     }
-    const fetchDistricts = async () => {
-      setLoadingDistricts(true);
-      try {
-        const data = await getCodeValuesApi(CODE_IDS.DISTRICT, form.province);
-        setDistricts(data);
-      } catch (err) {
-        console.error('Failed to fetch districts:', err);
-      } finally {
-        setLoadingDistricts(false);
-      }
-    };
-    fetchDistricts();
-  }, [form.province]);
+  }, [address.province]);
 
-  // Fetch municipalities when district changes
   useEffect(() => {
-    if (!form.district) {
+    if (address.district && !isNaN(address.district)) {
+      getCodeValuesApi(CODE_MUNI, address.district)
+        .then(res => {
+          const list = extractArray(res);
+          setMunicipalities(list);
+          setAddress((prev) => {
+            if (prev.municipality && isNaN(prev.municipality)) {
+              const match = list.find((m) => m.codeValueOptional === prev.municipality || m.codeValue === prev.municipality);
+              if (match) return { ...prev, municipality: String(match.id) };
+            }
+            return prev;
+          });
+        })
+        .catch(err => console.error('Failed to load municipalities', err));
+    } else {
       setMunicipalities([]);
-      return;
     }
-    const fetchMunicipalities = async () => {
-      setLoadingMunicipalities(true);
-      try {
-        const data = await getCodeValuesApi(CODE_IDS.MUNICIPALITY, form.district);
-        setMunicipalities(data);
-      } catch (err) {
-        console.error('Failed to fetch municipalities:', err);
-      } finally {
-        setLoadingMunicipalities(false);
+  }, [address.district]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+
+    // Real-time filtering
+    if (name === 'tole' && !isNepaliAlphaOnly(value)) return;
+    if (name === 'houseNo' && !isNepaliNumberWithSpecial(value)) return;
+
+    setAddress(prev => {
+      const updated = { ...prev, [name]: value };
+      
+      // Clear downstream when upstream changes
+      if (name === 'province') {
+        updated.district = '';
+        updated.municipality = '';
       }
-    };
-    fetchMunicipalities();
-  }, [form.district]);
+      if (name === 'district') {
+        updated.municipality = '';
+      }
+      return updated;
+    });
 
-
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
 
   const validate = () => {
     const errs = {};
-    if (!form.province) errs.province = 'Province is required';
-    if (!form.district) errs.district = 'District is required';
-    if (!form.municipality) errs.municipality = 'Municipality is required';
-    if (!form.tole.trim()) errs.tole = 'Tole is required';
-    if (!form.wardNo) errs.wardNo = 'Ward number is required';
-    if (!form.houseNo.trim()) errs.houseNo = 'House number is required';
+    if (!address.province) errs.province = 'Required';
+    if (!address.district) errs.district = 'Required';
+    if (!address.municipality) errs.municipality = 'Required';
+    if (!address.wardNo) errs.wardNo = 'Required';
+    if (!address.tole.trim()) errs.tole = 'Required';
     return errs;
   };
 
@@ -131,97 +161,86 @@ const AddressInfoStep = ({ prefill, formData, onNext, onBack }) => {
     e.preventDefault();
     const errs = validate();
     setErrors(errs);
+
     if (Object.keys(errs).length > 0) return;
-    onNext(form);
-  };
 
-  const handleProvinceChange = (e) => {
-    const value = e.target.value;
-    setForm({ ...form, province: value, district: '', municipality: '' });
-    setDistricts([]);
-    setMunicipalities([]);
-    if (errors.province) setErrors({ ...errors, province: '' });
-  };
+    const payload = {
+      province: parseInt(address.province, 10),
+      district: parseInt(address.district, 10),
+      municipality: parseInt(address.municipality, 10),
+      tole: address.tole.trim(),
+      wardNo: parseInt(address.wardNo, 10),
+      houseNo: address.houseNo.trim() || undefined,
+    };
 
-  const handleDistrictChange = (e) => {
-    const value = e.target.value;
-    setForm({ ...form, district: value, municipality: '' });
-    setMunicipalities([]);
-    if (errors.district) setErrors({ ...errors, district: '' });
-  };
-
-  const handleMunicipalityChange = (e) => {
-    const value = e.target.value;
-    setForm({ ...form, municipality: value });
-    if (errors.municipality) setErrors({ ...errors, municipality: '' });
-  };
-
-  const handleWardChange = (e) => {
-    const value = e.target.value;
-    setForm({ ...form, wardNo: value });
-    if (errors.wardNo) setErrors({ ...errors, wardNo: '' });
-  };
-
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-    if (errors[e.target.name]) setErrors({ ...errors, [e.target.name]: '' });
+    onNext(payload);
   };
 
   return (
     <form onSubmit={handleSubmit}>
-      <h3>Address Information</h3>
-      <div className="form-grid">
-        <div className="form-group">
-          <label htmlFor="province">Province *</label>
-          <select id="province" name="province" value={form.province} onChange={handleProvinceChange} disabled={loadingProvinces}>
-            <option value="">{loadingProvinces ? 'Loading...' : '-- Select Province --'}</option>
-            {provinces.map((p) => (
-              <option key={p.id} value={p.id}>{p.codeValueOptional || p.codeValue}</option>
-            ))}
-          </select>
-          {errors.province && <span className="form-error">{errors.province}</span>}
+      <div className="onboarding-form-area" style={{ border: '1px solid #e2e8f0', padding: '1.25rem', borderRadius: '8px', marginBottom: '1.5rem', background: '#fafbfc' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>
+          <h3 style={{ margin: 0, fontWeight: 600 }}>Company Address</h3>
         </div>
-        <div className="form-group">
-          <label htmlFor="district">District *</label>
-          <select id="district" name="district" value={form.district} onChange={handleDistrictChange} disabled={!form.province || loadingDistricts}>
-            <option value="">{loadingDistricts ? 'Loading...' : '-- Select District --'}</option>
-            {districts.map((d) => (
-              <option key={d.id} value={d.id}>{d.codeValueOptional || d.codeValue}</option>
-            ))}
-          </select>
-          {errors.district && <span className="form-error">{errors.district}</span>}
-        </div>
-        <div className="form-group">
-          <label htmlFor="municipality">Municipality *</label>
-          <select id="municipality" name="municipality" value={form.municipality} onChange={handleMunicipalityChange} disabled={!form.district || loadingMunicipalities}>
-            <option value="">{loadingMunicipalities ? 'Loading...' : '-- Select Municipality --'}</option>
-            {municipalities.map((m) => (
-              <option key={m.id} value={m.id}>{m.codeValueOptional || m.codeValue}</option>
-            ))}
-          </select>
-          {errors.municipality && <span className="form-error">{errors.municipality}</span>}
-        </div>
-        <div className="form-group">
-          <label htmlFor="tole">Tole *</label>
-          <input id="tole" name="tole" value={form.tole} onChange={handleChange} placeholder="e.g. Lamachaur" />
-          {errors.tole && <span className="form-error">{errors.tole}</span>}
-        </div>
-        <div className="form-group">
-          <label htmlFor="wardNo">Ward No *</label>
-          <select id="wardNo" name="wardNo" value={form.wardNo} onChange={handleWardChange} disabled={loadingWards}>
-            <option value="">{loadingWards ? 'Loading...' : '-- Select Ward --'}</option>
-            {wardNumbers.map((w) => (
-              <option key={w.id} value={w.id}>{w.codeValueOptional || w.codeValue}</option>
-            ))}
-          </select>
-          {errors.wardNo && <span className="form-error">{errors.wardNo}</span>}
-        </div>
-        <div className="form-group">
-          <label htmlFor="houseNo">House No *</label>
-          <input id="houseNo" name="houseNo" value={form.houseNo} onChange={handleChange} placeholder="e.g. 123" />
-          {errors.houseNo && <span className="form-error">{errors.houseNo}</span>}
+        
+        <div className="form-grid">
+          <div className="form-group">
+            <label>Province *</label>
+            <select name="province" value={address.province} onChange={handleChange}>
+              <option value="">Select Province</option>
+              {provinces.map((p) => (
+                <option key={p.id} value={p.id}>{p.codeValueOptional || p.codeValue}</option>
+              ))}
+            </select>
+            {errors.province && <span className="form-error">{errors.province}</span>}
+          </div>
+
+          <div className="form-group">
+            <label>District *</label>
+            <select name="district" value={address.district} onChange={handleChange} disabled={!address.province}>
+              <option value="">Select District</option>
+              {districts.map((d) => (
+                <option key={d.id} value={d.id}>{d.codeValueOptional || d.codeValue}</option>
+              ))}
+            </select>
+            {errors.district && <span className="form-error">{errors.district}</span>}
+          </div>
+
+          <div className="form-group">
+            <label>Local Government/Municipality *</label>
+            <select name="municipality" value={address.municipality} onChange={handleChange} disabled={!address.district}>
+              <option value="">Select Municipality</option>
+              {municipalities.map((m) => (
+                <option key={m.id} value={m.id}>{m.codeValueOptional || m.codeValue}</option>
+              ))}
+            </select>
+            {errors.municipality && <span className="form-error">{errors.municipality}</span>}
+          </div>
+
+          <div className="form-group">
+            <label>Ward No *</label>
+            <select name="wardNo" value={address.wardNo} onChange={handleChange}>
+              <option value="">Select Ward</option>
+              {wards.map((w) => (
+                <option key={w.id} value={w.id}>{w.codeValueOptional || w.codeValue}</option>
+              ))}
+            </select>
+            {errors.wardNo && <span className="form-error">{errors.wardNo}</span>}
+          </div>
+
+          <div className="form-group">
+            <label>Tole Name *</label>
+            <input name="tole" value={address.tole} onChange={handleChange} placeholder="e.g. Milan Chowk" />
+            {errors.tole && <span className="form-error">{errors.tole}</span>}
+          </div>
+
+          <div className="form-group">
+            <label>House Number</label>
+            <input name="houseNo" value={address.houseNo} onChange={handleChange} placeholder="e.g. 12A" />
+          </div>
         </div>
       </div>
+      
       <div className="step-actions">
         <button type="button" className="btn btn-outline" onClick={onBack}>← Back</button>
         <button type="submit" className="btn btn-primary">Next →</button>

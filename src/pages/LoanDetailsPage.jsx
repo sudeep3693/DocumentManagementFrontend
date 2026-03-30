@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
 import { getLoanByIdApi, downloadTamsukApi } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
-import html2pdf from 'html2pdf.js/dist/html2pdf.bundle.min.js';
 const LoanDetailsPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -36,23 +35,40 @@ const LoanDetailsPage = () => {
       setDownloadingTamsuk(true);
       const htmlContent = await downloadTamsukApi(loan.id);
 
-      const opt = {
-        margin:       0.5,
-        filename:     `Tamsuk_${loan.id}.pdf`,
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2 },
-        jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+      // html2canvas (used by html2pdf.js) does NOT support CSS writing-mode / vertical text.
+      // We instead open the HTML in a hidden iframe and trigger the browser's native print dialog,
+      // which fully honours all CSS including writing-mode: vertical-lr.
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.top = '-9999px';
+      iframe.style.left = '-9999px';
+      iframe.style.width = '210mm';   // A4 width
+      iframe.style.height = '297mm';  // A4 height
+      iframe.style.border = 'none';
+      document.body.appendChild(iframe);
+
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+      iframeDoc.open();
+      iframeDoc.write(htmlContent);
+      iframeDoc.close();
+
+      // Wait for fonts / images inside the iframe to load before printing
+      iframe.onload = () => {
+        try {
+          iframe.contentWindow.focus();
+          iframe.contentWindow.print();
+        } finally {
+          // Give the print dialog a moment, then clean up the iframe
+          setTimeout(() => {
+            document.body.removeChild(iframe);
+            setDownloadingTamsuk(false);
+          }, 1000);
+        }
       };
 
-      const element = document.createElement('div');
-      element.innerHTML = htmlContent;
-
-      await html2pdf().set(opt).from(element).save();
-
-      toast.success('Tamsuk downloaded successfully');
+      toast.success('Print dialog opened — save as PDF to download Tamsuk');
     } catch (err) {
       toast.error('Failed to download Tamsuk');
-    } finally {
       setDownloadingTamsuk(false);
     }
   };

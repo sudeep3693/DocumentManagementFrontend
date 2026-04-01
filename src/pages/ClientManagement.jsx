@@ -15,6 +15,7 @@ const ClientManagement = () => {
   const [size, setSize] = useState(10);
   const [totalPages, setTotalPages] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
+  const [committedSearchQuery, setCommittedSearchQuery] = useState('');
   const [showDeleted, setShowDeleted] = useState(false);
   const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
@@ -47,8 +48,8 @@ const ClientManagement = () => {
       
       if (showDeleted) {
         data = await getDeletedClientsApi(params);
-      } else if (searchQuery.trim()) {
-        data = await searchClientsApi({ ...params, query: searchQuery });
+      } else if (committedSearchQuery.trim()) {
+        data = await searchClientsApi({ ...params, query: committedSearchQuery });
       } else {
         data = await getClientsApi(params);
       }
@@ -64,12 +65,13 @@ const ClientManagement = () => {
 
   useEffect(() => {
     fetchClients();
-  }, [page, size, showDeleted]);
+  }, [page, size, showDeleted, committedSearchQuery]);
 
   const handleSearch = (e) => {
     e.preventDefault();
+    // Batch both state updates — useEffect fires once, no duplicate API call
+    setCommittedSearchQuery(searchQuery);
     setPage(0);
-    fetchClients();
   };
 
   const handleRestore = async (id) => {
@@ -175,6 +177,7 @@ const ClientManagement = () => {
                 setShowDeleted(e.target.checked);
                 setPage(0);
                 setSearchQuery('');
+                setCommittedSearchQuery('');
               }}
             />
             {showDeleted ? 'Showing Deleted Records' : 'Show Deleted'}

@@ -456,7 +456,7 @@ const LoanFormPage = () => {
   };
 
   const handleSakshiChange = (index, field, value) => {
-    if (field === 'age' && !isValidNepaliNumeralComma(value)) return;
+    if (field === 'age' && !isValidEnglishInteger(value)) return;
 
     const newList = [...form.sakshiList];
     newList[index][field] = value;
@@ -527,6 +527,7 @@ const LoanFormPage = () => {
     form.sakshiList.forEach((s, i) => {
       if (s._isExisting && !s.clientId) newErrs[`sk_${i}_clientId`] = 'Select a witness';
       if (!s._isExisting && !s.fullNameNepali) newErrs[`sk_${i}_fullName`] = 'Name required';
+      if (!s._isExisting && !s.age) newErrs[`sk_${i}_age`] = 'Age required';
     });
 
     setErrors(newErrs);
@@ -755,8 +756,9 @@ const LoanFormPage = () => {
                     {errors[`sk_${index}_fullName`] && <span className="form-error">{errors[`sk_${index}_fullName`]}</span>}
                   </div>
                   <div className="form-group">
-                    <label>Age (उमेर)</label>
+                    <label>Age (उमेर) *</label>
                     <input value={sk.age} onChange={(e) => handleSakshiChange(index, 'age', e.target.value)} />
+                    {errors[`sk_${index}_age`] && <span className="form-error">{errors[`sk_${index}_age`]}</span>}
                   </div>
                   <div className="form-group">
                     <label>Gender (लिङ्ग)</label>

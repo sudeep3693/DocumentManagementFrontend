@@ -202,9 +202,34 @@ export const getLoansByClientIdApi = async (clientId, params) => {
 };
 
 export const downloadTamsukApi = async (loanId) => {
-  const response = await axiosInstance.get(`/api/v1/pdf/tamsuk/${loanId}`, {
-    responseType: 'text',
+  const response = await axiosInstance.get(`/api/v1/pdf/tamsuk/${loanId}`);
+  return response.data;
+};
+
+export const uploadFinalPdfApi = async (file, pdfType, loanId) => {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await axiosInstance.post(`/api/v1/pdf/save/${loanId}?documentType=${pdfType}`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
   });
+  return response.data;
+};
+
+export const getPdfHistoryApi = async (loanId) => {
+  const response = await axiosInstance.get(`/api/v1/pdf/history/${loanId}`);
+  return response.data;
+};
+
+export const previewRegeneratePdfApi = async (loanId) => {
+  const response = await axiosInstance.get(`/api/v1/pdf/regenerate/${loanId}`);
+  return response.data;
+};
+
+export const confirmRegeneratePdfApi = async (loanId, data) => {
+  const response = await axiosInstance.post(`/api/v1/pdf/regenerate/confirm/${loanId}`, data);
   return response.data;
 };
 

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
-import { getLoanByIdApi, downloadTamsukApi } from '../services/api';
+import { getLoanByIdApi, downloadTamsukApi, uploadFinalPdfApi } from '../services/api';
+import html2pdf from 'html2pdf.js';
 import LoadingSpinner from '../components/LoadingSpinner';
-import html2pdf from 'html2pdf.js/dist/html2pdf.bundle.min.js';
 const LoanDetailsPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -12,6 +12,40 @@ const LoanDetailsPage = () => {
   const [loan, setLoan] = useState(null);
   const [loading, setLoading] = useState(true);
   const [downloadingTamsuk, setDownloadingTamsuk] = useState(false);
+  const [hasPreviewed, setHasPreviewed] = useState(false);
+  const [uploadingFinal, setUploadingFinal] = useState(false);
+
+  const handleUploadFinal = async () => {
+    try {
+      setUploadingFinal(true);
+      toast.success("Generating and uploading PDF... Please wait.");
+
+      const response = await downloadTamsukApi(loan.id);
+      const tempElement = document.createElement('div');
+      tempElement.innerHTML = response.htmlContent;
+
+      const opt = {
+        margin: 10,
+        filename: `tamsuk_${loan.id}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      // Generate the PDF blob via html2pdf
+      const pdfBlob = await html2pdf().set(opt).from(tempElement).outputPdf('blob');
+      const file = new File([pdfBlob], `tamsuk_${loan.id}.pdf`, { type: 'application/pdf' });
+
+      await uploadFinalPdfApi(file, 'tamsuk', loan.id);
+      toast.success('Final PDF saved to backend successfully');
+      setHasPreviewed(false);
+    } catch (err) {
+      toast.error('Failed to generate/save final PDF to backend');
+      console.error("PDF Upload Error:", err);
+    } finally {
+      setUploadingFinal(false);
+    }
+  };
 
   useEffect(() => {
     const fetchLoanInfo = async () => {
@@ -34,25 +68,48 @@ const LoanDetailsPage = () => {
   const handleDownloadTamsuk = async () => {
     try {
       setDownloadingTamsuk(true);
-      const htmlContent = await downloadTamsukApi(loan.id);
+      const response = await downloadTamsukApi(loan.id);
+      const { htmlContent, isGenerated } = response;
 
-      const opt = {
-        margin:       0.5,
-        filename:     `Tamsuk_${loan.id}.pdf`,
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2 },
-        jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+      // html2canvas (used by html2pdf.js) does NOT support CSS writing-mode / vertical text.
+      // We instead open the HTML in a hidden iframe and trigger the browser's native print dialog,
+      // which fully honours all CSS including writing-mode: vertical-lr.
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.top = '-9999px';
+      iframe.style.left = '-9999px';
+      iframe.style.width = '210mm';   // A4 width
+      iframe.style.height = '297mm';  // A4 height
+      iframe.style.border = 'none';
+      document.body.appendChild(iframe);
+
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+      iframeDoc.open();
+      iframeDoc.write(htmlContent);
+      iframeDoc.close();
+
+      // Wait for fonts / images inside the iframe to load before printing
+      iframe.onload = () => {
+        try {
+          iframe.contentWindow.focus();
+          iframe.contentWindow.print();
+        } finally {
+          // Give the print dialog a moment, then clean up the iframe
+          setTimeout(() => {
+            document.body.removeChild(iframe);
+            setDownloadingTamsuk(false);
+            if (isGenerated) {
+              setHasPreviewed(true);
+            } else {
+              setHasPreviewed(false);
+            }
+          }, 1000);
+        }
       };
 
-      const element = document.createElement('div');
-      element.innerHTML = htmlContent;
-
-      await html2pdf().set(opt).from(element).save();
-
-      toast.success('Tamsuk downloaded successfully');
+      toast.success('Pdf generated');
     } catch (err) {
       toast.error('Failed to download Tamsuk');
-    } finally {
       setDownloadingTamsuk(false);
     }
   };
@@ -276,7 +333,7 @@ const LoanDetailsPage = () => {
         )}
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '2rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '2rem', gap: '1rem' }}>
         <button
           className="btn btn-primary"
           onClick={handleDownloadTamsuk}
@@ -284,6 +341,24 @@ const LoanDetailsPage = () => {
         >
           {downloadingTamsuk ? 'Downloading...' : 'Download Tamsuk (तमसुक डाउनलोड)'}
         </button>
+        {loan.isTamsukGenerated && (
+          <button
+            className="btn btn-warning"
+            onClick={() => navigate(`/loans/${loan.id}/regenerate-tamsuk`)}
+          >
+            Regenerate Document
+          </button>
+        )}
+        {hasPreviewed && (
+          <button
+            className="btn btn-success"
+            style={{ padding: '0.6rem 1.2rem', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '500' }}
+            onClick={handleUploadFinal}
+            disabled={uploadingFinal}
+          >
+            {uploadingFinal ? 'Saving Final...' : 'Submit Final Tamsuk'}
+          </button>
+        )}
       </div>
     </div>
   );

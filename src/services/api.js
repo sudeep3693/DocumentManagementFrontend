@@ -176,6 +176,31 @@ export const downloadBulkImportTemplateApi = async () => {
 
 // ==================== LOAN SERVICES (Real Backend) ====================
 
+export const getDocumentWriterByIdApi = async (id) => {
+  const response = await axiosInstance.get(`/api/v1/document-writers/${id}`);
+  return response.data;
+};
+
+export const getAllDocumentWritersApi = async (params) => {
+  const response = await axiosInstance.get('/api/v1/document-writers', { params });
+  return response.data;
+};
+
+export const createDocumentWriterApi = async (data) => {
+  const response = await axiosInstance.post('/api/v1/document-writers', data);
+  return response.data;
+};
+
+export const updateDocumentWriterApi = async (id, data) => {
+  const response = await axiosInstance.put(`/api/v1/document-writers/${id}`, data);
+  return response.data;
+};
+
+export const deleteDocumentWriterApi = async (id) => {
+  const response = await axiosInstance.delete(`/api/v1/document-writers/${id}`);
+  return response.data;
+};
+
 export const addLoanApi = async (loanData) => {
   const response = await axiosInstance.post('/api/v1/loans', loanData);
   return response.data;

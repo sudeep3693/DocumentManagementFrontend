@@ -63,7 +63,7 @@ const isValidNepaliEnglishNumeral = (val) => {
 // Validate Nepali alpha only
 const isNepaliAlphaOnly = (val) => {
   if (!val) return true;
-  return /^[\u0900-\u0963\u0970-\u097F\s]*$/.test(val);
+  return /^[\u0900-\u0963\u0970-\u097F\s(),\-]*$/.test(val);
 };
 
 const calculateAge = (dateObj) => {

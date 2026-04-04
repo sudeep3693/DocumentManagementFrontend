@@ -11,7 +11,7 @@ export const isValidEnglishName = (val) => /^[a-zA-Z\s]*$/.test(val);
 export const isValidNepaliName = (val) => /^[\u0900-\u0963\u0966-\u097F\s]*$/.test(val) && !/[0-9]/.test(val) && !/[०-९]/.test(val);
 // Note: \u0966-\u096F are Nepali digits. We want to exclude them.
 // Refined Nepali Alpha only:
-export const isNepaliAlphaOnly = (val) => /^[\u0900-\u0963\u0970-\u097F\s]*$/.test(val);
+export const isNepaliAlphaOnly = (val) => /^[\u0900-\u0963\u0970-\u097F\s(),\-]*$/.test(val);
 
 /**
  * Only English alphabets, numbers, and common email special characters.

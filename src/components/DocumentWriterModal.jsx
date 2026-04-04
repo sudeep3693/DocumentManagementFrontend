@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useToast } from '../context/ToastContext';
 import { createDocumentWriterApi, updateDocumentWriterApi, getCodeValuesApi } from '../services/api';
+import { isNepaliAlphaOnly } from '../utils/validation';
 
 const CODE_IDS = {
   PROVINCE: 1001,
@@ -175,6 +176,7 @@ const DocumentWriterModal = ({ isOpen, onClose, onSuccess, initialData = null })
   const handleChange = (e) => {
     const { name, value } = e.target;
     if (name === 'age' && !isValidEnglishInteger(value)) return;
+    if (name === 'fullNameNepali' && value && !isNepaliAlphaOnly(value)) return;
     
     setForm(prev => {
       const updated = { ...prev, [name]: value };

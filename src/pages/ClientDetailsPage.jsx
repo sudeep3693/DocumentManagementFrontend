@@ -15,7 +15,6 @@ const CODE_IDS = {
   NOMINEE_RELATION: 1003,
   GENDER: 1004,
   MARITAL_STATUS: 1005,
-  CASTE: 1006,
 };
 
 const extractArray = (data) => {
@@ -60,12 +59,11 @@ const ClientDetailsPage = () => {
   const [nomineeRelations, setNomineeRelations] = useState({});
   const [genders, setGenders] = useState({});
   const [maritalStatuses, setMaritalStatuses] = useState({});
-  const [castRecords, setCastRecords] = useState({});
 
   useEffect(() => {
     const fetchSelects = async () => {
       try {
-        const [provList, wardList, distList, munList, spouseList, ancestorList, nomineeList, genderList, maritalList, casteList] = await Promise.all([
+        const [provList, wardList, distList, munList, spouseList, ancestorList, nomineeList, genderList, maritalList] = await Promise.all([
           getCodeValuesApi(CODE_IDS.PROVINCE).then(extractArray),
           getCodeValuesApi(CODE_IDS.WARD).then(extractArray),
           getCodeValuesApi(CODE_IDS.DISTRICT).then(extractArray),
@@ -75,7 +73,6 @@ const ClientDetailsPage = () => {
           getCodeValuesApi(CODE_IDS.NOMINEE_RELATION).then(extractArray),
           getCodeValuesApi(CODE_IDS.GENDER).then(extractArray),
           getCodeValuesApi(CODE_IDS.MARITAL_STATUS).then(extractArray),
-          getCodeValuesApi(CODE_IDS.CASTE).then(extractArray),
         ]);
         
         const arrToMap = (arr) => arr.reduce((acc, curr) => ({ ...acc, [curr.id]: curr.codeValueOptional || curr.codeValue }), {});
@@ -89,7 +86,6 @@ const ClientDetailsPage = () => {
         setNomineeRelations(arrToMap(nomineeList));
         setGenders(arrToMap(genderList));
         setMaritalStatuses(arrToMap(maritalList));
-        setCastRecords(arrToMap(casteList));
       } catch (err) {
         console.error('Failed to load code values', err);
       }
@@ -191,7 +187,6 @@ const ClientDetailsPage = () => {
             <div className="detail-item"><strong>Date of Birth (BS) / जन्म मिति:</strong><br/>{renderDate(client.dateOfBirth, client.dateOfBirthBs)}</div>
             <div className="detail-item"><strong>Gender / लिङ्ग:</strong><br/>{genders[client.gender] || client.gender || '—'}</div>
             <div className="detail-item"><strong>Marital Status / वैवाहिक स्थिति:</strong><br/>{maritalStatuses[client.maritalStatus] || client.maritalStatus || '—'}</div>
-            <div className="detail-item"><strong>Caste / जाति:</strong><br/>{castRecords[client.castRecordId || client.castRecord] || client.castRecordId || client.castRecord || '—'}</div>
             <div className="detail-item"><strong>Membership Date (BS) / सदस्यता मिति:</strong><br/>{renderDate(client.dateOfMembership, client.dateOfMembershipBs, client, 'membership')}</div>
             <div className="detail-item"><strong>Status / अवस्था:</strong><br/>
               <span className={`badge ${client.isActive ? 'badge-success' : 'badge-danger'}`}>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getAllDocumentWritersApi } from '../services/api';
+import { isNepaliAlphaOnly } from '../utils/validation';
 
 const DocumentWriterSearchSelect = ({ label, onSelect, error, value, className }) => {
   const [query, setQuery] = useState(value || '');
@@ -43,6 +44,7 @@ const DocumentWriterSearchSelect = ({ label, onSelect, error, value, className }
 
   const handleInputChange = (e) => {
     const val = e.target.value;
+    if (val && !isNepaliAlphaOnly(val)) return;
     setQuery(val);
     setShowDropdown(true);
     // When manually typing, pass a partial object to the parent so it knows it is entering a new name

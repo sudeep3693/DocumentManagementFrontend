@@ -4,6 +4,7 @@ import {
   isValidEnglishName, 
   isNepaliAlphaOnly, 
   isValidEmailChar, 
+  hasNoNepali,
   isEnglishNumber 
 } from '../../utils/validation';
 
@@ -107,7 +108,7 @@ const CompanyInfoStep = ({ data, prefill, formData, onNext, isEditMode }) => {
     if (name === 'nameEnglish' && !isValidEnglishName(value)) return;
     if (name === 'nameNepali' && !isNepaliAlphaOnly(value)) return;
     if (name === 'cooperativeRegisteredOffice' && !isNepaliAlphaOnly(value)) return;
-    if (name === 'email' && !isValidEmailChar(value)) return;
+    if (name === 'email' && (!isValidEmailChar(value) || !hasNoNepali(value))) return;
     if (name === 'contactNumber' && !isEnglishNumber(value)) return;
 
     setForm({ ...form, [name]: value });

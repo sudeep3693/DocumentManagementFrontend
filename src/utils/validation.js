@@ -29,6 +29,11 @@ export const isEnglishNumber = (val) => /^[0-9]*$/.test(val);
 export const isNepaliNumberWithSpecial = (val) => /^[०-९\-/,.]*$/.test(val);
 
 /**
+ * Validates english and nepali numbers along with ()-/
+ */
+export const isValidNumberWithSymbols = (val) => /^[\u0966-\u096F0-9\s()/\-]*$/.test(val);
+
+/**
  * Block Nepali characters and Nepali numbers.
  */
 export const hasNoNepali = (val) => !/[\u0900-\u097F]/.test(val);
@@ -37,3 +42,10 @@ export const hasNoNepali = (val) => !/[\u0900-\u097F]/.test(val);
  * Combined helper for real-time input filtering
  */
 export const filterInput = (value, reg) => reg.test(value);
+
+const NEPALI_DIGITS = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
+
+export const convertToNepaliDigits = (str) => {
+  if (!str || typeof str !== 'string') return str;
+  return str.replace(/[0-9]/g, (ch) => NEPALI_DIGITS[parseInt(ch)]);
+};

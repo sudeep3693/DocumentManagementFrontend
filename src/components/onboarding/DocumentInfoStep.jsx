@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getCodeValuesApi } from '../../services/api';
 import NepaliDatePickerWrapper from '../NepaliDatePickerWrapper';
-import { isNepaliNumberWithSpecial } from '../../utils/validation';
+import { isValidNumberWithSymbols, convertToNepaliDigits, hasNoNepali } from '../../utils/validation';
 
 const CODE_DOCUMENT_TYPE = 58;
 
@@ -57,8 +57,10 @@ const DocumentInfoStep = ({ prefill, formData, onNext, onBack }) => {
   };
 
   const handleChange = (index, field, value) => {
-    // Real-time filtering for document number
-    if (field === 'documentNumber' && !isNepaliNumberWithSpecial(value)) return;
+    // Real-time filtering for document number: accept English digits + symbols, block Nepali text
+    if (field === 'documentNumber') {
+      if (value && !isValidNumberWithSymbols(value)) return;
+    }
 
     const updated = [...documents];
     updated[index] = { ...updated[index], [field]: value };
@@ -99,7 +101,7 @@ const DocumentInfoStep = ({ prefill, formData, onNext, onBack }) => {
 
     const formattedDocs = documents.map((d) => ({
       documentType: parseInt(d.documentType, 10),
-      documentNumber: d.documentNumber.trim(),
+      documentNumber: convertToNepaliDigits(d.documentNumber.trim()),
       documentIssueDate: d.documentIssueDate,
     }));
 

@@ -4,7 +4,9 @@ import NepaliDatePickerWrapper from '../NepaliDatePickerWrapper';
 import { 
   isValidEnglishName, 
   isNepaliAlphaOnly, 
-  isNepaliNumberWithSpecial,
+  isValidNumberWithSymbols,
+  convertToNepaliDigits,
+  hasNoNepali,
   isEnglishNumber 
 } from '../../utils/validation';
 
@@ -86,9 +88,9 @@ const AuthorizedPersonStep = ({ prefill, formData, onNext, onBack }) => {
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
     
-    // Parse Long field for district
     const payload = {
       ...form,
+      citizenshipNo: convertToNepaliDigits(form.citizenshipNo),
       citizenshipIssuedDistrict: parseInt(form.citizenshipIssuedDistrict, 10),
     };
     onNext(payload);
@@ -101,7 +103,8 @@ const AuthorizedPersonStep = ({ prefill, formData, onNext, onBack }) => {
     if (name === 'fullName' && !isValidEnglishName(value)) return;
     if (name === 'fullNameNepali' && !isNepaliAlphaOnly(value)) return;
     if (name === 'contactNo' && !isEnglishNumber(value)) return;
-    if (name === 'citizenshipNo' && !isNepaliNumberWithSpecial(value)) return;
+    if (name === 'emailAddress' && !hasNoNepali(value)) return;
+    if (name === 'citizenshipNo' && value && !isValidNumberWithSymbols(value)) return;
 
     setForm({ ...form, [name]: value });
     if (errors[name]) setErrors({ ...errors, [name]: '' });

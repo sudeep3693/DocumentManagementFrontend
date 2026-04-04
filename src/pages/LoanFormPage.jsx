@@ -439,6 +439,11 @@ const LoanFormPage = () => {
     if (validationType === 'decimal' && !isValidEnglishDecimal(value)) return;
     if (validationType === 'integer' && !isValidEnglishInteger(value)) return;
 
+    // Specific validation for interestRate: Max 16
+    if (name === 'interestRate' && value) {
+      if (parseFloat(value) > 16) return;
+    }
+
     setForm(p => ({ ...p, [name]: value }));
     if (errors[name]) setErrors(p => ({ ...p, [name]: null }));
   };
@@ -568,7 +573,11 @@ const LoanFormPage = () => {
     if (!form.clientId) newErrs.clientId = 'Please select a main client';
     if (!form.purposeOfLoan) newErrs.purposeOfLoan = 'Required';
     if (!form.loanRepaymentType) newErrs.loanRepaymentType = 'Required';
-    if (!form.interestRate) newErrs.interestRate = 'Required';
+    if (!form.interestRate) {
+      newErrs.interestRate = 'Required';
+    } else if (parseFloat(form.interestRate) > 16) {
+      newErrs.interestRate = 'Maximum interest rate is 16%';
+    }
     if (!form.loanAmount) newErrs.loanAmount = 'Required';
     if (!form.repayDateBs) newErrs.repayDateBs = 'Required';
 
@@ -821,7 +830,14 @@ const LoanFormPage = () => {
                 <div className="form-grid">
                   <div className="form-group">
                     <label>Full Name (नेपाली नाम) *</label>
-                    <input value={sk.fullNameNepali} onChange={(e) => handleSakshiChange(index, 'fullNameNepali', e.target.value)} />
+                    <input 
+                      value={sk.fullNameNepali} 
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val && !isNepaliAlphaOnly(val)) return;
+                        handleSakshiChange(index, 'fullNameNepali', val);
+                      }} 
+                    />
                     {errors[`sk_${index}_fullName`] && <span className="form-error">{errors[`sk_${index}_fullName`]}</span>}
                   </div>
                   <div className="form-group">

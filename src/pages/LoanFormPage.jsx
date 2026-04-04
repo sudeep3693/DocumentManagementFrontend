@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
-import { searchClientsApi, getCodeValuesApi, addLoanApi, getClientByIdApi, getLoanByIdApi, updateLoanApi } from '../services/api';
+import { searchClientsApi, getCodeValuesApi, addLoanApi, getClientByIdApi, getLoanByIdApi, updateLoanApi, getDocumentWriterByIdApi } from '../services/api';
 import NepaliDatePickerWrapper from '../components/NepaliDatePickerWrapper';
+import DocumentWriterSearchSelect from '../components/DocumentWriterSearchSelect';
 import './ClientLayout.css';
+import { isNepaliAlphaOnly } from '../utils/validation';
 
 // Numeral conversion helpers
 const NEPALI_DIGITS = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
@@ -170,13 +172,16 @@ const emptySakshi = {
 const emptyForm = {
   clientId: '',
   purposeOfLoan: '',
+  loanRepaymentType: '',
   interestRate: '',
   loanAmount: '',
   interestRateFormat: '', 
   loanRemainingToBePaid: '',
   repayDateBs: '',
   dhanjamaniList: [{ ...emptyDhanjamani }],
-  sakshiList: []
+  sakshiList: [],
+  documentWriterId: '',
+  documentWriterName: ''
 };
 
 const CODE_IDS = {
@@ -186,7 +191,8 @@ const CODE_IDS = {
   WARD: 2,
   GENDER: 1004,
   LOAN_PURPOSE: 3,
-  INTEREST_FORMAT: 4
+  INTEREST_FORMAT: 4,
+  LOAN_REPAYMENT_TYPE: 5
 };
 
 const extractArray = (data) => {
@@ -222,16 +228,18 @@ const LoanFormPage = () => {
   const [genders, setGenders] = useState([]);
   const [purposes, setPurposes] = useState([{ id: 1, codeValue: 'कृषि (Agriculture)' }, { id: 2, codeValue: 'व्यापार (Business)' }]);
   const [payFormats, setPayFormats] = useState([]);
+  const [repayTypes, setRepayTypes] = useState([]);
 
   useEffect(() => {
     const fetchCodesAndData = async () => {
       try {
-        const [prov, w, g, purp, payFmt] = await Promise.all([
+        const [prov, w, g, purp, payFmt, repayTypeRes] = await Promise.all([
           getCodeValuesApi(CODE_IDS.PROVINCE).catch(() => []),
           getCodeValuesApi(CODE_IDS.WARD).catch(() => []),
           getCodeValuesApi(CODE_IDS.GENDER).catch(() => []),
           getCodeValuesApi(CODE_IDS.LOAN_PURPOSE).catch(() => []),
-          getCodeValuesApi(CODE_IDS.INTEREST_FORMAT).catch(() => [])
+          getCodeValuesApi(CODE_IDS.INTEREST_FORMAT).catch(() => []),
+          getCodeValuesApi(CODE_IDS.LOAN_REPAYMENT_TYPE).catch(() => [])
         ]);
         setProvinces(extractArray(prov));
         setWards(extractArray(w));
@@ -242,6 +250,9 @@ const LoanFormPage = () => {
 
         const fetchedPayFormats = extractArray(payFmt);
         setPayFormats(fetchedPayFormats);
+
+        const fetchedRepayTypes = extractArray(repayTypeRes);
+        setRepayTypes(fetchedRepayTypes);
 
         if (isEditing) {
           const loanData = await getLoanByIdApi(id);
@@ -325,6 +336,7 @@ const LoanFormPage = () => {
           const mappedForm = {
             clientId: loanData.clientsDetails?.id || loanData.clientId || '',
             purposeOfLoan: loanData.purposeOfLoan || '', 
+            loanRepaymentType: loanData.loanRepaymentType || '',
             interestRate: nepaliToEnglish(loanData.interestRate),
             loanAmount: nepaliToEnglish(loanData.loanAmount),
             interestRateFormat: loanData.interestFormat || loanData.interestRateFormat || 0,
@@ -339,13 +351,31 @@ const LoanFormPage = () => {
                 address: d.temporaryAddressDetails ? `${d.temporaryAddressDetails.toleName || ''}, Ward ${d.temporaryAddressDetails.wardNo || ''}` : ''
               }
             })),
-            sakshiList: mappedSakshiList
+            sakshiList: mappedSakshiList,
+            documentWriterId: '',
+            documentWriterName: ''
           };
+
+          if (loanData.documentWriterId) {
+            try {
+              const dw = await getDocumentWriterByIdApi(loanData.documentWriterId);
+              mappedForm.documentWriterId = dw.id;
+              mappedForm.documentWriterName = dw.fullNameNepali || '';
+            } catch (err) {
+              console.error("Failed to fetch document writer details", err);
+            }
+          }
 
           // If purpose is a string (e.g. "कृषि"), try to find matching ID in the FRESHLY FETCHED PURPOSES
           if (typeof mappedForm.purposeOfLoan === 'string') {
              const found = fetchedPurposes.find(p => p.codeValue === mappedForm.purposeOfLoan || p.codeValueOptional === mappedForm.purposeOfLoan);
              if (found) mappedForm.purposeOfLoan = found.id;
+          }
+
+          // If loan repayment type is a string, map it to ID
+          if (typeof mappedForm.loanRepaymentType === 'string' && mappedForm.loanRepaymentType) {
+             const found = fetchedRepayTypes.find(p => p.codeValue === mappedForm.loanRepaymentType || p.codeValueOptional === mappedForm.loanRepaymentType);
+             if (found) mappedForm.loanRepaymentType = found.id;
           }
 
           // If interest format is a string (e.g. "मासिक"), try to find matching ID in the FRESHLY FETCHED PAY FORMATS
@@ -408,6 +438,11 @@ const LoanFormPage = () => {
     if (validationType === 'currency' && !isValidEnglishCurrency(value)) return;
     if (validationType === 'decimal' && !isValidEnglishDecimal(value)) return;
     if (validationType === 'integer' && !isValidEnglishInteger(value)) return;
+
+    // Specific validation for interestRate: Max 16
+    if (name === 'interestRate' && value) {
+      if (parseFloat(value) > 16) return;
+    }
 
     setForm(p => ({ ...p, [name]: value }));
     if (errors[name]) setErrors(p => ({ ...p, [name]: null }));
@@ -510,11 +545,39 @@ const LoanFormPage = () => {
     setForm(p => ({ ...p, sakshiList: form.sakshiList.filter((_, i) => i !== index) }));
   };
 
+  const handleWriterSelect = (w) => {
+    if (w.isNew) {
+      setForm(p => ({
+        ...p,
+        documentWriterId: '',
+        documentWriterName: w.fullNameNepali || ''
+      }));
+    } else {
+      setForm(p => ({
+        ...p,
+        documentWriterId: w.id,
+        documentWriterName: w.fullNameNepali || ''
+      }));
+      
+      // Clear errors
+      setErrors(prev => {
+        const next = { ...prev };
+        delete next.documentWriterId;
+        return next;
+      });
+    }
+  };
+
   const validate = () => {
     const newErrs = {};
     if (!form.clientId) newErrs.clientId = 'Please select a main client';
     if (!form.purposeOfLoan) newErrs.purposeOfLoan = 'Required';
-    if (!form.interestRate) newErrs.interestRate = 'Required';
+    if (!form.loanRepaymentType) newErrs.loanRepaymentType = 'Required';
+    if (!form.interestRate) {
+      newErrs.interestRate = 'Required';
+    } else if (parseFloat(form.interestRate) > 16) {
+      newErrs.interestRate = 'Maximum interest rate is 16%';
+    }
     if (!form.loanAmount) newErrs.loanAmount = 'Required';
     if (!form.repayDateBs) newErrs.repayDateBs = 'Required';
 
@@ -529,6 +592,10 @@ const LoanFormPage = () => {
       if (!s._isExisting && !s.fullNameNepali) newErrs[`sk_${i}_fullName`] = 'Name required';
       if (!s._isExisting && !s.age) newErrs[`sk_${i}_age`] = 'Age required';
     });
+
+    if (!form.documentWriterId) {
+      newErrs.documentWriterId = 'Please select a document writer from the list';
+    }
 
     setErrors(newErrs);
     return Object.keys(newErrs).length === 0;
@@ -547,6 +614,7 @@ const LoanFormPage = () => {
     const payload = {
       ...form,
       purposeOfLoan: Number(form.purposeOfLoan),
+      loanRepaymentType: form.loanRepaymentType ? Number(form.loanRepaymentType) : null,
       interestRateFormat: form.interestRateFormat ? Number(form.interestRateFormat) : 0,
       interestRate: englishToNepali(form.interestRate),
       loanAmount: englishToNepali(String(form.loanAmount).replace(/,/g, '')),
@@ -568,7 +636,8 @@ const LoanFormPage = () => {
         localGovernment: s.localGovernment ? Number(s.localGovernment) : 0,
         wardNumber: s.wardNumber ? Number(s.wardNumber) : 0,
         gender: s.gender ? Number(s.gender) : 0
-      }))
+      })),
+      documentWriterId: form.documentWriterId ? Number(form.documentWriterId) : null
     };
 
     delete payload.repayDateBs;
@@ -645,6 +714,15 @@ const LoanFormPage = () => {
                 {purposes.map(p => <option key={p.id} value={p.id}>{p.codeValueOptional || p.codeValue}</option>)}
               </select>
               {errors.purposeOfLoan && <span className="form-error">{errors.purposeOfLoan}</span>}
+            </div>
+
+            <div className="form-group">
+              <label>Loan Repayment Type (कर्जा किसिम) *</label>
+              <select name="loanRepaymentType" value={form.loanRepaymentType} onChange={(e) => handleMainChange(e)}>
+                <option value="">-- Select --</option>
+                {repayTypes.map(p => <option key={p.id} value={p.id}>{p.codeValueOptional || p.codeValue}</option>)}
+              </select>
+              {errors.loanRepaymentType && <span className="form-error">{errors.loanRepaymentType}</span>}
             </div>
 
             <div className="form-group">
@@ -752,7 +830,14 @@ const LoanFormPage = () => {
                 <div className="form-grid">
                   <div className="form-group">
                     <label>Full Name (नेपाली नाम) *</label>
-                    <input value={sk.fullNameNepali} onChange={(e) => handleSakshiChange(index, 'fullNameNepali', e.target.value)} />
+                    <input 
+                      value={sk.fullNameNepali} 
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val && !isNepaliAlphaOnly(val)) return;
+                        handleSakshiChange(index, 'fullNameNepali', val);
+                      }} 
+                    />
                     {errors[`sk_${index}_fullName`] && <span className="form-error">{errors[`sk_${index}_fullName`]}</span>}
                   </div>
                   <div className="form-group">
@@ -800,6 +885,23 @@ const LoanFormPage = () => {
               )}
             </div>
           ))}
+        </div>
+
+        {/* Writer Section */}
+        <div className="form-section-card">
+          <div className="form-section-header">
+            <h3 className="form-section-title">Writer Details (लेखक विवरण) *</h3>
+          </div>
+          <div className="form-grid">
+            <div className="form-group">
+              <label>Full Name (नेपाली नाम) *</label>
+              <DocumentWriterSearchSelect 
+                value={form.documentWriterName || ''} 
+                onSelect={handleWriterSelect} 
+                error={errors.documentWriterId} 
+              />
+            </div>
+          </div>
         </div>
 
         {/* Footer Actions */}

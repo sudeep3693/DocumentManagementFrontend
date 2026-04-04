@@ -20,6 +20,7 @@ const Sidebar = () => {
     { to: '/dashboard', label: 'Dashboard', icon: '📊' },
     { to: '/clients', label: 'Clients (ग्राहक)', icon: '🏢' },
     { to: '/loans', label: 'Loans (कर्जा)', icon: '💰' },
+    { to: '/document-writers', label: 'Document Writers', icon: '✍️' },
     { to: '/profile', label: 'Profile', icon: '👤' },
   ];
 

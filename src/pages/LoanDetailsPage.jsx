@@ -228,10 +228,6 @@ const LoanDetailsPage = () => {
             <strong style={{ display: 'block', color: '#666', fontSize: '0.85rem' }}>Repayment Date (BS)</strong>
             <span>{loan.repayDateBs || (loan.repayDate && loan.repayDate.bsDate) || loan.loanRepaymentDateBs || '—'}</span>
           </div>
-          <div>
-            <strong style={{ display: 'block', color: '#666', fontSize: '0.85rem' }}>Remaining Amount</strong>
-            <span>{loan.loanRemainingToBePaid || '—'}</span>
-          </div>
         </div>
       </div>
 

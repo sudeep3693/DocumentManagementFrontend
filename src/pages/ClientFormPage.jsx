@@ -4,6 +4,7 @@ import { useToast } from '../context/ToastContext';
 import { addClientApi, updateClientApi, getClientByIdApi, getCodeValuesApi } from '../services/api';
 import './ClientLayout.css';
 import NepaliDatePickerWrapper from '../components/NepaliDatePickerWrapper';
+import { isNepaliAlphaOnly, isValidNumberWithSymbols, convertToNepaliDigits, hasNoNepali, isEnglishNumber } from '../utils/validation';
 
 // Nepali numeral helpers
 const NEPALI_DIGITS = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
@@ -54,17 +55,7 @@ const parseCurrencyToNumber = (val) => {
   return isNaN(num) ? null : num;
 };
 
-// Validates alphanumeric and basic punctuation (dash, slash) for house numbers
-const isValidNepaliEnglishNumeral = (val) => {
-  if (!val) return true;
-  return /^[\u0900-\u097Fa-zA-Z0-9\s/-]*$/.test(val);
-};
 
-// Validate Nepali alpha only
-const isNepaliAlphaOnly = (val) => {
-  if (!val) return true;
-  return /^[\u0900-\u0963\u0970-\u097F\s]*$/.test(val);
-};
 
 const calculateAge = (dateObj) => {
   if (!dateObj || (!dateObj.adDate && !dateObj.bsDate)) return null;
@@ -90,7 +81,6 @@ const CODE_IDS = {
   NOMINEE_RELATION: 1003,
   GENDER: 1004,
   MARITAL_STATUS: 1005,
-  CASTE: 1006,
 };
 
 const emptyAddress = {
@@ -113,7 +103,6 @@ const emptyForm = {
   fullNameEnglish: '',
   gender: '',
   maritalStatus: '',
-  castRecordId: '',
   spouseType: '',
   spouseNameNepali: '',
   spouseNameEnglish: '',
@@ -164,7 +153,6 @@ const ClientFormPage = () => {
   const [allDistricts, setAllDistricts] = useState([]);
   const [genders, setGenders] = useState([]);
   const [maritalStatuses, setMaritalStatuses] = useState([]);
-  const [castRecords, setCastRecords] = useState([]);
 
   // Address Dropdown options
   const [provinces, setProvinces] = useState([]);
@@ -230,7 +218,6 @@ const ClientFormPage = () => {
           getCodeValuesApi(CODE_IDS.NOMINEE_RELATION),
           getCodeValuesApi(CODE_IDS.GENDER),
           getCodeValuesApi(CODE_IDS.MARITAL_STATUS),
-          getCodeValuesApi(CODE_IDS.CASTE),
         ]);
         const provincesList = extractArray(prov);
         const wardsList = extractArray(wardData);
@@ -240,7 +227,6 @@ const ClientFormPage = () => {
         const nomineeRelationsList = extractArray(nRels);
         const gendersList = extractArray(gTypes);
         const maritalList = extractArray(mTypes);
-        const casteList = extractArray(cTypes);
 
         setProvinces(provincesList);
         setWards(wardsList);
@@ -250,7 +236,6 @@ const ClientFormPage = () => {
         setNomineeRelations(nomineeRelationsList);
         setGenders(gendersList);
         setMaritalStatuses(maritalList);
-        setCastRecords(casteList);
 
         if (isEditing) {
           const data = await getClientByIdApi(id);
@@ -302,7 +287,6 @@ const ClientFormPage = () => {
             shareCertificateNumber: nepaliToEnglishDigits(String(data.shareCertificateNumber || '')),
             gender: resolve(gendersList, data.gender),
             maritalStatus: resolve(maritalList, data.maritalStatus),
-            castRecordId: resolve(casteList, data.castRecord || data.castRecordId),
             spouseType: resolve(spouseTypesList, data.spouseType),
             ancestorType: resolve(ancestorTypesList, data.ancestorType),
             citizenshipIssueDistrict: resolve(allDistrictsList, data.citizenshipIssueDistrict),
@@ -364,7 +348,15 @@ const ClientFormPage = () => {
   }, [form.addresses[1].district]);
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    let { name, value } = e.target;
+
+    if (name === 'citizenshipNumber') {
+      if (value && !isValidNumberWithSymbols(value)) return;
+      value = convertToNepaliDigits(value);
+    }
+
+    if (name === 'emailId' && !hasNoNepali(value)) return;
+    if (name === 'mobileNumber' && !isEnglishNumber(value)) return;
 
     setForm(prev => {
       const updated = { ...prev, [name]: value };
@@ -418,8 +410,8 @@ const ClientFormPage = () => {
       const newAddresses = [...prev.addresses];
       let parsedValue;
       if (field === 'houseNo') {
-        // houseNo accepts Nepali/English numerals as string
-        parsedValue = value;
+        if (value && !isValidNumberWithSymbols(value)) return prev;
+        parsedValue = convertToNepaliDigits(value);
       } else if (['province', 'district', 'municipality', 'wardNo'].includes(field)) {
         parsedValue = value ? Number(value) : '';
       } else {
@@ -508,7 +500,6 @@ const ClientFormPage = () => {
     payload.spouseType = form.spouseType ? Number(form.spouseType) : null;
     payload.ancestorType = form.ancestorType ? Number(form.ancestorType) : null;
     payload.maritalStatus = form.maritalStatus ? Number(form.maritalStatus) : null;
-    payload.castRecordId = form.castRecordId ? Number(form.castRecordId) : null;
     payload.citizenshipIssueDistrict = form.citizenshipIssueDistrict ? Number(form.citizenshipIssueDistrict) : null;
 
     const extractDateObj = (dateField) => {
@@ -596,13 +587,6 @@ const ClientFormPage = () => {
                 {maritalStatuses.map(m => <option key={m.id} value={m.id}>{m.codeValueOptional || m.codeValue}</option>)}
               </select>
               {errors.maritalStatus && <span className="form-error">{errors.maritalStatus}</span>}
-            </div>
-            <div className="form-group">
-              <label>Caste / जाति</label>
-              <select name="castRecordId" value={form.castRecordId} onChange={handleChange}>
-                <option value="">-- Select --</option>
-                {castRecords.map(c => <option key={c.id} value={c.id}>{c.codeValueOptional || c.codeValue}</option>)}
-              </select>
             </div>
             <div className="form-group">
               <label>जन्म मिति / Date of Birth (BS)</label>

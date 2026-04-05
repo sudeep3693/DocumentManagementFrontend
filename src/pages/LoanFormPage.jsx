@@ -6,6 +6,19 @@ import NepaliDatePickerWrapper from '../components/NepaliDatePickerWrapper';
 import DocumentWriterSearchSelect from '../components/DocumentWriterSearchSelect';
 import './ClientLayout.css';
 import { isNepaliAlphaOnly } from '../utils/validation';
+import FormSkeleton from '../components/skeletons/FormSkeleton';
+import cache from '../utils/cache';
+
+// Cached code value fetcher (indefinite TTL — static data)
+const fetchCodeCached = (codeId) => {
+  const key = `codeValues:${codeId}`;
+  const hit = cache.get(key);
+  if (hit) return Promise.resolve(hit);
+  return getCodeValuesApi(codeId).catch(() => []).then((data) => {
+    cache.set(key, data); // no TTL = indefinite
+    return data;
+  });
+};
 
 // Numeral conversion helpers
 const NEPALI_DIGITS = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
@@ -234,12 +247,12 @@ const LoanFormPage = () => {
     const fetchCodesAndData = async () => {
       try {
         const [prov, w, g, purp, payFmt, repayTypeRes] = await Promise.all([
-          getCodeValuesApi(CODE_IDS.PROVINCE).catch(() => []),
-          getCodeValuesApi(CODE_IDS.WARD).catch(() => []),
-          getCodeValuesApi(CODE_IDS.GENDER).catch(() => []),
-          getCodeValuesApi(CODE_IDS.LOAN_PURPOSE).catch(() => []),
-          getCodeValuesApi(CODE_IDS.INTEREST_FORMAT).catch(() => []),
-          getCodeValuesApi(CODE_IDS.LOAN_REPAYMENT_TYPE).catch(() => [])
+          fetchCodeCached(CODE_IDS.PROVINCE),
+          fetchCodeCached(CODE_IDS.WARD),
+          fetchCodeCached(CODE_IDS.GENDER),
+          fetchCodeCached(CODE_IDS.LOAN_PURPOSE),
+          fetchCodeCached(CODE_IDS.INTEREST_FORMAT),
+          fetchCodeCached(CODE_IDS.LOAN_REPAYMENT_TYPE)
         ]);
         setProvinces(extractArray(prov));
         setWards(extractArray(w));
@@ -646,9 +659,17 @@ const LoanFormPage = () => {
       if (isEditing) {
         await updateLoanApi(id, payload);
         toast.success('Loan updated successfully');
+        // Invalidate loan cache and re-fetch
+        cache.invalidate(`loans:detail:${id}`);
+        cache.invalidateByPrefix('loans:list:');
+        try {
+          const fresh = await getLoanByIdApi(id);
+          cache.set(`loans:detail:${id}`, fresh, 300);
+        } catch {}
       } else {
         await addLoanApi(payload);
         toast.success('Loan created successfully');
+        cache.invalidateByPrefix('loans:list:');
       }
       navigate('/loans');
     } catch (err) {
@@ -658,7 +679,7 @@ const LoanFormPage = () => {
     }
   };
 
-  if (loading) return <div className="page-content">Loading...</div>;
+  if (loading) return <FormSkeleton sections={3} fieldsPerSection={6} />;
 
   return (
     <div className="page-content" style={{ maxWidth: '900px', margin: '0 auto' }}>

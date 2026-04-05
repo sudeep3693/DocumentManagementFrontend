@@ -5,6 +5,8 @@ import { addClientApi, updateClientApi, getClientByIdApi, getCodeValuesApi } fro
 import './ClientLayout.css';
 import NepaliDatePickerWrapper from '../components/NepaliDatePickerWrapper';
 import { isNepaliAlphaOnly, isValidNumberWithSymbols, convertToNepaliDigits, hasNoNepali, isEnglishNumber } from '../utils/validation';
+import FormSkeleton from '../components/skeletons/FormSkeleton';
+import cache from '../utils/cache';
 
 // Nepali numeral helpers
 const NEPALI_DIGITS = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
@@ -526,9 +528,18 @@ const ClientFormPage = () => {
       if (isEditing) {
         await updateClientApi(id, payload);
         toast.success('Client updated successfully');
+        // Invalidate caches for this client and the list
+        cache.invalidate(`clients:detail:${id}`);
+        cache.invalidateByPrefix('clients:list:');
+        // Re-fetch fresh data and store in cache
+        try {
+          const fresh = await getClientByIdApi(id);
+          cache.set(`clients:detail:${id}`, fresh, 300);
+        } catch {}
       } else {
         await addClientApi(payload);
         toast.success('Client added successfully');
+        cache.invalidateByPrefix('clients:list:');
       }
       navigate('/clients');
     } catch (err) {
@@ -538,7 +549,7 @@ const ClientFormPage = () => {
     }
   };
 
-  if (loading) return <div className="page-content">Loading...</div>;
+  if (loading) return <FormSkeleton sections={4} fieldsPerSection={6} />;
 
   return (
     <div className="page-content" style={{ maxWidth: '900px', margin: '0 auto' }}>

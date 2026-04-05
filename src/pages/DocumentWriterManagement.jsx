@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useToast } from '../context/ToastContext';
 import { getAllDocumentWritersApi, deleteDocumentWriterApi, getCodeValuesApi } from '../services/api';
-import LoadingSpinner from '../components/LoadingSpinner';
+import TableSkeleton from '../components/skeletons/TableSkeleton';
 import DocumentWriterModal from '../components/DocumentWriterModal';
+import cache from '../utils/cache';
 
 const CODE_IDS = {
   PROVINCE: 1001,
@@ -41,9 +42,19 @@ const DocumentWriterManagement = () => {
   useEffect(() => {
     const fetchCodes = async () => {
       try {
+        const cachedCode = (codeId) => {
+          const key = `codeValues:${codeId}`;
+          const hit = cache.get(key);
+          if (hit) return Promise.resolve(hit);
+          return getCodeValuesApi(codeId).catch(() => []).then((data) => {
+            cache.set(key, data); // indefinite TTL — static data
+            return data;
+          });
+        };
+
         const [prov, g] = await Promise.all([
-          getCodeValuesApi(CODE_IDS.PROVINCE).catch(() => []),
-          getCodeValuesApi(CODE_IDS.GENDER).catch(() => []),
+          cachedCode(CODE_IDS.PROVINCE),
+          cachedCode(CODE_IDS.GENDER),
         ]);
         setProvinces(extractArray(prov));
         setGenders(extractArray(g));
@@ -55,10 +66,21 @@ const DocumentWriterManagement = () => {
     fetchCodes();
   }, []);
 
-  const fetchWriters = async () => {
+  const fetchWriters = async (forceRefresh = false) => {
+    const cacheKey = `documentWriters:list:${page}:${size}`;
+    if (!forceRefresh) {
+      const cached = cache.get(cacheKey);
+      if (cached) {
+        setWriters(cached.content || []);
+        setTotalPages(cached.totalPages || 0);
+        setLoading(false);
+        return;
+      }
+    }
     setLoading(true);
     try {
       const data = await getAllDocumentWritersApi({ page, size, sort: 'id,desc' });
+      cache.set(cacheKey, data, 300);
       setWriters(data.content || []);
       setTotalPages(data.totalPages || 0);
     } catch (err) {
@@ -77,10 +99,11 @@ const DocumentWriterManagement = () => {
     try {
       await deleteDocumentWriterApi(id);
       toast.success('Document Writer deleted successfully');
+      cache.invalidateByPrefix('documentWriters:');
       if (writers.length === 1 && page > 0) {
         setPage(page - 1);
       } else {
-        fetchWriters();
+        fetchWriters(true);
       }
     } catch (err) {
       toast.error(err.message || 'Failed to delete document writer');
@@ -112,7 +135,13 @@ const DocumentWriterManagement = () => {
     return found ? (found.codeValueOptional || found.codeValue) : id;
   };
 
-  if (loading && writers.length === 0) return <LoadingSpinner />;
+  // onSuccess is called by DocumentWriterModal after add or edit
+  const handleWriterSuccess = () => {
+    cache.invalidateByPrefix('documentWriters:');
+    fetchWriters(true);
+  };
+
+  if (loading && writers.length === 0) return <TableSkeleton cols={7} rows={5} />;
 
   return (
     <div className="page-content">
@@ -129,7 +158,7 @@ const DocumentWriterManagement = () => {
       <DocumentWriterModal 
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onSuccess={fetchWriters}
+        onSuccess={handleWriterSuccess}
         initialData={selectedWriter}
       />
 

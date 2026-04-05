@@ -2,8 +2,12 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
 import { getClientsApi, deleteClientApi, searchClientsApi, getDeletedClientsApi, enableClientApi, downloadBulkImportTemplateApi } from '../services/api';
-import LoadingSpinner from '../components/LoadingSpinner';
+import TableSkeleton from '../components/skeletons/TableSkeleton';
 import BulkImportModal from '../components/BulkImportModal';
+import cache from '../utils/cache';
+
+const buildClientListKey = (page, size, query, deleted) =>
+  `clients:list:${page}:${size}:${query}:${deleted}`;
 
 const ClientManagement = () => {
   const navigate = useNavigate();
@@ -40,7 +44,17 @@ const ClientManagement = () => {
     }
   };
 
-  const fetchClients = async () => {
+  const fetchClients = async (forceRefresh = false) => {
+    const cacheKey = buildClientListKey(page, size, committedSearchQuery, showDeleted);
+    if (!forceRefresh) {
+      const cached = cache.get(cacheKey);
+      if (cached) {
+        setClients(cached.content || []);
+        setTotalPages(cached.totalPages || 0);
+        setLoading(false);
+        return;
+      }
+    }
     setLoading(true);
     try {
       let data;
@@ -53,7 +67,8 @@ const ClientManagement = () => {
       } else {
         data = await getClientsApi(params);
       }
-      
+
+      cache.set(cacheKey, data, 300); // 5 min TTL
       setClients(data.content || []);
       setTotalPages(data.totalPages || 0);
     } catch (err) {
@@ -78,7 +93,8 @@ const ClientManagement = () => {
     try {
       await enableClientApi(id);
       toast.success('Client restored');
-      fetchClients();
+      cache.invalidateByPrefix('clients:');
+      fetchClients(true);
     } catch (err) {
       toast.error(err.message || 'Failed to restore client');
     }
@@ -89,11 +105,11 @@ const ClientManagement = () => {
     try {
       await deleteClientApi(id);
       toast.success('Client deleted');
-      // If we delete the last item on the page, go to previous page if not on page 0
+      cache.invalidateByPrefix('clients:');
       if (clients.length === 1 && page > 0) {
         setPage(page - 1);
       } else {
-        fetchClients();
+        fetchClients(true);
       }
     } catch (err) {
       toast.error(err.message || 'Failed to delete client');
@@ -121,7 +137,7 @@ const ClientManagement = () => {
     return '—';
   };
 
-  if (loading && clients.length === 0) return <LoadingSpinner />;
+  if (loading && clients.length === 0) return <TableSkeleton cols={8} rows={5} />;
 
   return (
     <div className="page-content">

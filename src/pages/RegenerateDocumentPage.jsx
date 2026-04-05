@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
 import { getPdfHistoryApi, previewRegeneratePdfApi, confirmRegeneratePdfApi } from '../services/api';
-import LoadingSpinner from '../components/LoadingSpinner';
+import TableSkeleton from '../components/skeletons/TableSkeleton';
+import cache from '../utils/cache';
 
 const RegenerateDocumentPage = () => {
   const { id } = useParams();
@@ -18,10 +19,20 @@ const RegenerateDocumentPage = () => {
   const [previewHtml, setPreviewHtml] = useState(null);
   const [previewing, setPreviewing] = useState(false);
 
-  const fetchHistory = async () => {
+  const fetchHistory = async (forceRefresh = false) => {
+    const cacheKey = `pdfHistory:${id}`;
+    if (!forceRefresh) {
+      const cached = cache.get(cacheKey);
+      if (cached) {
+        setHistoryData(cached);
+        setLoading(false);
+        return;
+      }
+    }
     try {
       setLoading(true);
       const data = await getPdfHistoryApi(id);
+      cache.set(cacheKey, data, 300);
       setHistoryData(data);
     } catch (err) {
       toast.error(err.message || 'Failed to fetch document history');
@@ -96,7 +107,8 @@ const RegenerateDocumentPage = () => {
       toast.success('Document regenerated successfully');
       setReason('');
       setPreviewHtml(null);
-      await fetchHistory();
+      cache.invalidate(`pdfHistory:${id}`);
+      await fetchHistory(true);
     } catch (err) {
       toast.error(err.message || 'Failed to confirm document regeneration');
     } finally {
@@ -146,7 +158,7 @@ const RegenerateDocumentPage = () => {
     }
   };
 
-  if (loading) return <LoadingSpinner />;
+  if (loading) return <TableSkeleton cols={4} rows={3} hasActions={true} />;
 
   return (
     <div className="page-content" style={{ maxWidth: '1000px', margin: '0 auto' }}>

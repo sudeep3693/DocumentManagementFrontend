@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
 import { getClientByIdApi, getCodeValuesApi, enableClientApi } from '../services/api';
-import LoadingSpinner from '../components/LoadingSpinner';
+import DetailSkeleton from '../components/skeletons/DetailSkeleton';
+import cache from '../utils/cache';
 import './ClientLayout.css';
 
 const CODE_IDS = {
@@ -63,16 +64,26 @@ const ClientDetailsPage = () => {
   useEffect(() => {
     const fetchSelects = async () => {
       try {
+        const cachedCode = (codeId) => {
+          const key = `codeValues:${codeId}`;
+          const hit = cache.get(key);
+          if (hit) return Promise.resolve(hit);
+          return getCodeValuesApi(codeId).then((data) => {
+            cache.set(key, data); // indefinite TTL for static data
+            return data;
+          });
+        };
+
         const [provList, wardList, distList, munList, spouseList, ancestorList, nomineeList, genderList, maritalList] = await Promise.all([
-          getCodeValuesApi(CODE_IDS.PROVINCE).then(extractArray),
-          getCodeValuesApi(CODE_IDS.WARD).then(extractArray),
-          getCodeValuesApi(CODE_IDS.DISTRICT).then(extractArray),
-          getCodeValuesApi(CODE_IDS.MUNICIPALITY).then(extractArray),
-          getCodeValuesApi(CODE_IDS.SPOUSE_TYPE).then(extractArray),
-          getCodeValuesApi(CODE_IDS.ANCESTOR_TYPE).then(extractArray),
-          getCodeValuesApi(CODE_IDS.NOMINEE_RELATION).then(extractArray),
-          getCodeValuesApi(CODE_IDS.GENDER).then(extractArray),
-          getCodeValuesApi(CODE_IDS.MARITAL_STATUS).then(extractArray),
+          cachedCode(CODE_IDS.PROVINCE).then(extractArray),
+          cachedCode(CODE_IDS.WARD).then(extractArray),
+          cachedCode(CODE_IDS.DISTRICT).then(extractArray),
+          cachedCode(CODE_IDS.MUNICIPALITY).then(extractArray),
+          cachedCode(CODE_IDS.SPOUSE_TYPE).then(extractArray),
+          cachedCode(CODE_IDS.ANCESTOR_TYPE).then(extractArray),
+          cachedCode(CODE_IDS.NOMINEE_RELATION).then(extractArray),
+          cachedCode(CODE_IDS.GENDER).then(extractArray),
+          cachedCode(CODE_IDS.MARITAL_STATUS).then(extractArray),
         ]);
         
         const arrToMap = (arr) => arr.reduce((acc, curr) => ({ ...acc, [curr.id]: curr.codeValueOptional || curr.codeValue }), {});
@@ -95,8 +106,16 @@ const ClientDetailsPage = () => {
 
   useEffect(() => {
     const fetchClient = async () => {
+      const cacheKey = `clients:detail:${id}`;
+      const cached = cache.get(cacheKey);
+      if (cached) {
+        setClient(cached);
+        setLoading(false);
+        return;
+      }
       try {
         const data = await getClientByIdApi(id);
+        cache.set(cacheKey, data, 300);
         setClient(data);
       } catch (err) {
         toast.error(err.message || 'Failed to load client details');
@@ -112,15 +131,18 @@ const ClientDetailsPage = () => {
     try {
       await enableClientApi(id);
       toast.success('Client enabled successfully');
-      // Refresh client data
+      // Clear cache and re-fetch fresh data
+      cache.invalidate(`clients:detail:${id}`);
+      cache.invalidateByPrefix('clients:list:');
       const data = await getClientByIdApi(id);
+      cache.set(`clients:detail:${id}`, data, 300);
       setClient(data);
     } catch (err) {
       toast.error(err.message || 'Failed to enable client');
     }
   };
 
-  if (loading || !client) return <LoadingSpinner />;
+  if (loading || !client) return <DetailSkeleton cards={4} itemsPerCard={6} />;
 
   const pAddr = client.addresses?.find(a => a.addressType === 'P');
   const tAddr = client.addresses?.find(a => a.addressType === 'T');

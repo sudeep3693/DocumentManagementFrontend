@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
 import { getLoansApi } from '../services/api';
-import LoadingSpinner from '../components/LoadingSpinner';
+import TableSkeleton from '../components/skeletons/TableSkeleton';
+import cache from '../utils/cache';
 
 const LoanManagement = () => {
   const navigate = useNavigate();
@@ -14,10 +15,21 @@ const LoanManagement = () => {
   const [size, setSize] = useState(10);
   const [totalPages, setTotalPages] = useState(0);
 
-  const fetchLoans = async () => {
+  const fetchLoans = async (forceRefresh = false) => {
+    const cacheKey = `loans:list:${page}:${size}`;
+    if (!forceRefresh) {
+      const cached = cache.get(cacheKey);
+      if (cached) {
+        setLoans(cached.content || []);
+        setTotalPages(cached.totalPages || 0);
+        setLoading(false);
+        return;
+      }
+    }
     setLoading(true);
     try {
       const data = await getLoansApi({ page, size, sort: 'id,desc' });
+      cache.set(cacheKey, data, 300);
       setLoans(data.content || []);
       setTotalPages(data.totalPages || 0);
     } catch (err) {
@@ -39,7 +51,7 @@ const LoanManagement = () => {
     if (page > 0) setPage(p => p - 1);
   };
 
-  if (loading && loans.length === 0) return <LoadingSpinner />;
+  if (loading && loans.length === 0) return <TableSkeleton cols={6} rows={5} />;
 
   return (
     <div className="page-content">

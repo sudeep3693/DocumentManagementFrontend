@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
 import { getLoanByIdApi, downloadTamsukApi, uploadFinalPdfApi } from '../services/api';
 import html2pdf from 'html2pdf.js';
-import LoadingSpinner from '../components/LoadingSpinner';
+import DetailSkeleton from '../components/skeletons/DetailSkeleton';
+import cache from '../utils/cache';
 const LoanDetailsPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -49,8 +50,16 @@ const LoanDetailsPage = () => {
 
   useEffect(() => {
     const fetchLoanInfo = async () => {
+      const cacheKey = `loans:detail:${id}`;
+      const cached = cache.get(cacheKey);
+      if (cached) {
+        setLoan(cached);
+        setLoading(false);
+        return;
+      }
       try {
         const data = await getLoanByIdApi(id);
+        cache.set(cacheKey, data, 300);
         setLoan(data);
       } catch (err) {
         toast.error(err.message || 'Failed to fetch loan details');
@@ -62,7 +71,7 @@ const LoanDetailsPage = () => {
     fetchLoanInfo();
   }, [id, navigate, toast]);
 
-  if (loading) return <LoadingSpinner />;
+  if (loading) return <DetailSkeleton cards={3} itemsPerCard={4} />;
   if (!loan) return <div className="page-content">No loan information found.</div>;
 
   const handleDownloadTamsuk = async () => {

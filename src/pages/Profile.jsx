@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { getUserProfileApi, updateUserProfileApi, changeUserPasswordApi } from '../services/api';
+import ProfileSkeleton from '../components/skeletons/ProfileSkeleton';
 import LoadingSpinner from '../components/LoadingSpinner';
+import cache from '../utils/cache';
 import PasswordStrengthIndicator, { validatePassword } from '../components/PasswordStrengthIndicator';
 import { hasNoNepali } from '../utils/validation';
 
@@ -42,10 +44,19 @@ const Profile = () => {
     loadProfile();
   }, []);
 
-  const loadProfile = async () => {
+  const loadProfile = async (forceRefresh = false) => {
+    if (!forceRefresh) {
+      const cached = cache.get('profile');
+      if (cached) {
+        setProfileData(cached);
+        setLoading(false);
+        return;
+      }
+    }
     setLoading(true);
     try {
       const resp = await getUserProfileApi();
+      cache.set('profile', resp, 300);
       setProfileData(resp);
     } catch (err) {
       toast.error('Failed to load profile details');
@@ -94,7 +105,8 @@ const Profile = () => {
       try {
         await updateUserProfileApi(updatedForm);
         toast.success('Profile updated successfully');
-        await loadProfile(); // reload fresh data
+        cache.invalidate('profile');
+        await loadProfile(true); // reload fresh data
         setActiveTab(VIEW_TAB);
       } catch (err) {
         toast.error(err.response?.data?.message || err.message || 'Failed to update profile');
@@ -148,7 +160,7 @@ const Profile = () => {
   };
 
   if (loading && !profileData) {
-    return <LoadingSpinner text="Loading Profile..." />;
+    return <ProfileSkeleton />;
   }
 
   const { companyDetails } = profileData || {};

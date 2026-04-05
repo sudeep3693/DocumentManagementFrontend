@@ -455,7 +455,9 @@
 
 /* ========== Page Content ========== */
 .page-content {
-  max-width: 1100px;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1.5rem 2rem;
 }
 
 .page-content h1 {
@@ -2046,7 +2048,8 @@
 .skeleton-detail-wrapper,
 .skeleton-form-wrapper,
 .skeleton-profile-wrapper {
-  max-width: 1100px;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
 .skeleton-step-indicator {
@@ -2068,8 +2071,10 @@
 
 /* Smooth width transition on the sidebar itself */
 .sidebar {
-  transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
+  z-index: 1000;
+  box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
 }
 
 .sidebar.sidebar-collapsed {
@@ -2085,7 +2090,7 @@
   visibility: hidden;
   width: 0;
   overflow: hidden;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.2s ease-in-out;
 }
 
 /* Center icons when collapsed */
@@ -2119,7 +2124,7 @@
   cursor: pointer;
   font-size: 0.75rem;
   box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
-  transition: background 0.2s ease, transform 0.28s ease;
+  transition: background 0.2s ease, transform 0.3s ease;
   line-height: 1;
 }
 
@@ -2133,17 +2138,18 @@
   right: -14px;
 }
 
-/* Main content smooth transition */
+/* Main content stays in place (doesn't jump) */
 .main-content {
-  transition: margin-left 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: none;
+  margin-left: 64px !important; /* Constant margin to account for collapsed sidebar */
 }
 
 .main-content.content-expanded {
-  margin-left: 260px;
+  margin-left: 64px !important;
 }
 
 .main-content.content-collapsed {
-  margin-left: 64px;
+  margin-left: 64px !important;
 }
 
 /* Hover trigger strip (invisible, left edge) */

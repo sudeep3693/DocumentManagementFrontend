@@ -23,6 +23,7 @@ import LoanFormPage from '../pages/LoanFormPage';
 import LoanDetailsPage from '../pages/LoanDetailsPage';
 import RegenerateDocumentPage from '../pages/RegenerateDocumentPage';
 import DocumentWriterManagement from '../pages/DocumentWriterManagement';
+import NotificationPage from '../pages/NotificationPage';
 
 const AuthRedirect = ({ children }) => {
   const { isAuthenticated, role, status } = useAuth();
@@ -65,6 +66,7 @@ const AppRouter = () => {
           <Route path="/loans/:id/edit" element={<LoanFormPage />} />
           <Route path="/loans/:id/regenerate-tamsuk" element={<RegenerateDocumentPage />} />
           <Route path="/document-writers" element={<DocumentWriterManagement />} />
+          <Route path="/notifications" element={<NotificationPage />} />
           <Route path="/profile" element={<Profile />} />
         </Route>
 

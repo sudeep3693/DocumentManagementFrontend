@@ -284,3 +284,20 @@ export const changeUserPasswordApi = async (data) => {
   const response = await axiosInstance.post('/api/v1/users/authenticated/change-password', data);
   return response.data;
 };
+
+// ==================== NOTIFICATION SERVICES (Real Backend) ====================
+
+export const sendSmsApi = async (data) => {
+  const response = await axiosInstance.post('/api/v1/notification/sms/send', data);
+  return response.data;
+};
+
+export const sendBulkSmsApi = async (data) => {
+  const response = await axiosInstance.post('/api/v1/notification/sms/send-bulk', data);
+  return response.data;
+};
+
+export const sendBulkEmailApi = async (data) => {
+  const response = await axiosInstance.post('/api/v1/notification/email/bulk-email', data);
+  return response.data;
+};

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { loginApi, updateProfileApi, logoutApi } from '../services/api';
+import { loginApi, updateProfileApi, logoutApi, validateOtpApi } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -73,6 +73,11 @@ export const AuthProvider = ({ children }) => {
 
   const login = useCallback(async (username, password) => {
     const data = await loginApi(username, password);
+    return data;
+  }, []);
+
+  const validateOtp = useCallback(async (sessionId, otp) => {
+    const data = await validateOtpApi({ sessionId, otp });
 
     const accessToken = data.accessToken;
     const refreshToken = data.refreshToken || null;
@@ -86,13 +91,14 @@ export const AuthProvider = ({ children }) => {
 
     // Build user object from response
     const user = {
-      username: data.username || username,
-      name: data.username || username,
+      username: data.username || '',
+      name: data.username || '',
       roles: roles,
       role: role,
       tenantId: data.tenantId || null,
+      tenantName: data.tenantName || null,
       tokenVersion: data.tokenVersion || null,
-      status: 'approved',
+      status: 'approved', // Defaulting to approved based on existing code logic
     };
 
     persistAuth(user, accessToken, refreshToken);
@@ -142,6 +148,7 @@ export const AuthProvider = ({ children }) => {
     role: authState.user?.role || null,
     status: authState.user?.status || null,
     login,
+    validateOtp,
     updateProfile,
     updateUser,
     logout,

@@ -14,6 +14,11 @@ export const loginApi = async (username, password) => {
   return response.data;
 };
 
+export const validateOtpApi = async (data) => {
+  const response = await axiosInstance.post('/api/v1/auth/login/validate-otp', data);
+  return response.data;
+};
+
 export const refreshTokenApi = async (refreshToken) => {
   const response = await axiosInstance.post('/api/v1/auth/refresh', { refreshToken });
   return response.data;
@@ -76,6 +81,11 @@ export const getAdminUserByIdApi = async (userId) => {
 
 export const initiateOnboardingApi = async (contactNumber) => {
   const response = await axiosInstance.post('/api/v1/users/onboarding/initiate', { contactNumber });
+  return response.data;
+};
+
+export const validateOnboardingOtpApi = async (data) => {
+  const response = await axiosInstance.post('/api/v1/users/onboarding/validate-otp', data);
   return response.data;
 };
 

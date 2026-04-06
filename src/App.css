@@ -2670,17 +2670,6 @@
 
 
 
-
-
-
-  display: flex;
-  gap: 0.5rem;
-  padding: 1rem 1.25rem 0;
-  background: #fff;
-  border-left: 1px solid var(--gray-200);
-  border-right: 1px solid var(--gray-200);
-}
-
 .notif-sub-tab {
   padding: 0.55rem 1.25rem;
   border-radius: var(--radius-full);

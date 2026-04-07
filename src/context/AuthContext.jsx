@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { loginApi, updateProfileApi, logoutApi, validateOtpApi } from '../services/api';
+import cache from '../utils/cache';
 
 const AuthContext = createContext(null);
 
@@ -127,6 +128,9 @@ export const AuthProvider = ({ children }) => {
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
+
+      // Clear in-memory cache
+      cache.clear();
 
       // Clear common token cookies if they exist
       document.cookie = 'accessToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { BASE_API_URL } from './config';
+import { generateHmac } from '../utils/hmac';
 
 const axiosInstance = axios.create({
   baseURL: BASE_API_URL,
@@ -8,13 +9,56 @@ const axiosInstance = axios.create({
   },
 });
 
-// Request interceptor — attach access token
+const resolveUrl = (relativeUrl, baseURL) => {
+  return new URL(relativeUrl, baseURL || window.location.origin);
+};
+
+// Request interceptor — attach access token and HMAC
 axiosInstance.interceptors.request.use(
-  (config) => {
+  async (config) => {
     const token = localStorage.getItem('accessToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // Determine content type (skip multipart/form-data)
+    const contentType = config.headers['Content-Type'] || config.headers['content-type'];
+    const isMultipart = contentType && contentType.toString().startsWith('multipart/form-data');
+    const isFormData = config.data instanceof FormData;
+
+    if (!isMultipart && !isFormData) {
+      // Build fullURL logically identical to the Java Backend
+      // Using axiosInstance.getUri guarantees we use the exact same param serialization that axios will send over the network.
+      let fullUriFromAxios = config.url;
+      try {
+        fullUriFromAxios = axiosInstance.getUri(config);
+      } catch (e) {
+        // fallback just in case getUri fails
+      }
+      
+      const urlObj = new URL(fullUriFromAxios, config.baseURL || window.location.origin);
+      const path = urlObj.pathname.toLowerCase();
+      
+      let queryString = "";
+      if (urlObj.search && urlObj.search.length > 1) {
+        const searchRaw = urlObj.search.substring(1);
+        // Equivalent to Arrays.sort(pairs, String.CASE_INSENSITIVE_ORDER)
+        queryString = searchRaw.split('&').sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase())).join('&');
+      }
+      
+      let fullUrl = path;
+      if (queryString) {
+        fullUrl += "?" + queryString.toLowerCase();
+      }
+
+      const method = (config.method || 'GET').toUpperCase();
+      const hmacSignature = await generateHmac(config.data, method, fullUrl);
+      
+      if (hmacSignature) {
+        config.headers['X-HMAC-Request-Signature'] = hmacSignature;
+      }
+    }
+
     return config;
   },
   (error) => Promise.reject(error)
@@ -67,14 +111,19 @@ axiosInstance.interceptors.response.use(
           throw new Error('No refresh token');
         }
 
-        // Backend expects refresh token as Bearer header, no body
+        // Backend expects refresh token as Bearer header, empty object body
+        const refreshBody = {};
+        const refreshPath = '/api/v1/auth/refresh';
+        const hmacSignature = await generateHmac(refreshBody, 'POST', refreshPath);
+
         const response = await axios.post(
-          `${BASE_API_URL}/api/v1/auth/refresh`,
-          {},
+          `${BASE_API_URL}${refreshPath}`,
+          refreshBody,
           {
             headers: {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${refreshToken}`,
+              ...(hmacSignature ? { 'X-HMAC-Request-Signature': hmacSignature } : {})
             },
           }
         );

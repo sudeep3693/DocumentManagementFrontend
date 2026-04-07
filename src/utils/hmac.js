@@ -31,9 +31,6 @@ async function hashSHA256(data) {
 export async function generateHmac(payload, method, fullUrl) {
   try {
     const secretKey = getSecretKey();
-    console.log(payload);
-    console.log(method);
-    console.log(fullUrl);
 
     // Axios sends `config.data` as object or string. We need to reflect how it'll hit Java endpoint as a String
     let requestBodyString = "";

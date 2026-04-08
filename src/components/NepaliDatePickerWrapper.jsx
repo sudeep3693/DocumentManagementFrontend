@@ -25,9 +25,9 @@ const AD_REF = new Date(1943, 3, 14); // April 14, 1943
 const REF_DAY_OF_WEEK = 3; // Wednesday
 
 // Nepali digit conversion helpers
-const nepaliDigits = ['०','१','२','३','४','५','६','७','८','९'];
-const toNepaliDigits = (num) => String(num).replace(/[0-9]/g, d => nepaliDigits[d]);
-const toEnglishDigits = (str) => {
+export const nepaliDigits = ['०','१','२','३','४','५','६','७','८','९'];
+export const toNepaliDigits = (num) => String(num).replace(/[0-9]/g, d => nepaliDigits[d]);
+export const toEnglishDigits = (str) => {
   if (!str) return '';
   return str.replace(/[०-९]/g, ch => nepaliDigits.indexOf(ch).toString());
 };
@@ -53,7 +53,7 @@ const bsDaysFromRef = (y, m, d) => {
 };
 
 // Convert BS to AD
-const bsToAd = (bsY, bsM, bsD) => {
+export const bsToAd = (bsY, bsM, bsD) => {
   const daysDiff = bsDaysFromRef(bsY, bsM, bsD);
   const ad = new Date(AD_REF);
   ad.setDate(ad.getDate() + daysDiff);
@@ -61,7 +61,7 @@ const bsToAd = (bsY, bsM, bsD) => {
 };
 
 // Convert AD to BS
-const adToBs = (adDate) => {
+export const adToBs = (adDate) => {
   const d = new Date(adDate.getFullYear(), adDate.getMonth(), adDate.getDate());
   const diff = Math.floor((d - AD_REF) / (1000 * 60 * 60 * 24));
   let bsY = BS_REF.year;
@@ -99,16 +99,16 @@ const getDayOfWeek = (bsY, bsM, bsD) => {
 };
 
 // Get today in BS
-const getTodayBs = () => adToBs(new Date());
+export const getTodayBs = () => adToBs(new Date());
 
 // Format BS date as YYYY-MM-DD
-const formatBs = (y, m, d) => `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+export const formatBs = (y, m, d) => `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 
 // Format AD date as YYYY-MM-DD
-const formatAd = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+export const formatAd = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
 // Parse BS date string (handles both EN and NE digits)
-const parseBsDate = (str) => {
+export const parseBsDate = (str) => {
   if (!str) return null;
   const normalized = toEnglishDigits(String(str));
   const parts = normalized.split('-');

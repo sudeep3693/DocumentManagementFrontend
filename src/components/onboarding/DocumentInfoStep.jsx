@@ -60,6 +60,7 @@ const DocumentInfoStep = ({ prefill, formData, onNext, onBack }) => {
     // Real-time filtering for document number: accept English digits + symbols, block Nepali text
     if (field === 'documentNumber') {
       if (value && !isValidNumberWithSymbols(value)) return;
+      value = convertToNepaliDigits(value);
     }
 
     const updated = [...documents];
@@ -101,7 +102,7 @@ const DocumentInfoStep = ({ prefill, formData, onNext, onBack }) => {
 
     const formattedDocs = documents.map((d) => ({
       documentType: parseInt(d.documentType, 10),
-      documentNumber: convertToNepaliDigits(d.documentNumber.trim()),
+      documentNumber: d.documentNumber,
       documentIssueDate: d.documentIssueDate,
     }));
 

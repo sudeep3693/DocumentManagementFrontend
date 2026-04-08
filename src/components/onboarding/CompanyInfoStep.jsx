@@ -5,7 +5,7 @@ import {
   isNepaliAlphaOnly, 
   isValidEmailChar, 
   hasNoNepali,
-  isEnglishNumber 
+  convertToNepaliDigits 
 } from '../../utils/validation';
 
 const CODE_COOPERATIVE_TYPE = 57;
@@ -102,14 +102,16 @@ const CompanyInfoStep = ({ data, prefill, formData, onNext, isEditMode }) => {
   };
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    let { name, value } = e.target;
     
     // Real-time filtering based on requirements
     if (name === 'nameEnglish' && !isValidEnglishName(value)) return;
     if (name === 'nameNepali' && !isNepaliAlphaOnly(value)) return;
     if (name === 'cooperativeRegisteredOffice' && !isNepaliAlphaOnly(value)) return;
     if (name === 'email' && (!isValidEmailChar(value) || !hasNoNepali(value))) return;
-    if (name === 'contactNumber' && !isEnglishNumber(value)) return;
+    if (name === 'contactNumber') {
+      value = convertToNepaliDigits(value);
+    }
 
     setForm({ ...form, [name]: value });
     if (errors[name]) setErrors({ ...errors, [name]: '' });

@@ -4,7 +4,6 @@ import { useToast } from '../context/ToastContext';
 import { getClientByIdApi, getCodeValuesApi, enableClientApi } from '../services/api';
 import DetailSkeleton from '../components/skeletons/DetailSkeleton';
 import cache from '../utils/cache';
-import './ClientLayout.css';
 
 const CODE_IDS = {
   PROVINCE: 1001,
@@ -40,24 +39,59 @@ const calculateAge = (dateObj) => {
   return age;
 };
 
+/* ─── Reusable detail field ─── */
+const Field = ({ label, value, full }) => (
+  <div style={{ gridColumn: full ? '1 / -1' : undefined }}>
+    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.3rem' }}>
+      {label}
+    </div>
+    <div style={{ fontSize: '0.9rem', color: 'var(--gray-800)', fontWeight: 500 }}>
+      {value || '—'}
+    </div>
+  </div>
+);
+
+/* ─── Section card with subtle left accent ─── */
+const Section = ({ icon, title, accentColor = 'var(--primary-500)', children }) => (
+  <div style={{
+    background: '#fff',
+    borderRadius: 'var(--radius-lg)',
+    border: '1px solid var(--gray-200)',
+    boxShadow: 'var(--shadow-sm)',
+    overflow: 'hidden',
+  }}>
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.65rem',
+      padding: '0.85rem 1.25rem',
+      borderBottom: '1px solid var(--gray-100)',
+      borderLeft: `3px solid ${accentColor}`,
+      background: 'var(--gray-50)',
+    }}>
+      <span style={{ fontSize: '1.1rem' }}>{icon}</span>
+      <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'var(--gray-800)' }}>{title}</h3>
+    </div>
+    <div style={{ padding: '1.25rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.15rem' }}>
+      {children}
+    </div>
+  </div>
+);
+
 const ClientDetailsPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
-  
+
   const [client, setClient] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Address lookup dictionaries
   const [provinces, setProvinces] = useState({});
   const [districts, setDistricts] = useState({});
   const [municipalities, setMunicipalities] = useState({});
   const [wards, setWards] = useState({});
-  
-  // Entity lookup dictionaries
   const [spouseTypes, setSpouseTypes] = useState({});
   const [ancestorTypes, setAncestorTypes] = useState({});
-  const [nomineeRelations, setNomineeRelations] = useState({});
   const [genders, setGenders] = useState({});
   const [maritalStatuses, setMaritalStatuses] = useState({});
 
@@ -69,12 +103,12 @@ const ClientDetailsPage = () => {
           const hit = cache.get(key);
           if (hit) return Promise.resolve(hit);
           return getCodeValuesApi(codeId).then((data) => {
-            cache.set(key, data); // indefinite TTL for static data
+            cache.set(key, data);
             return data;
           });
         };
 
-        const [provList, wardList, distList, munList, spouseList, ancestorList, nomineeList, genderList, maritalList] = await Promise.all([
+        const [provList, wardList, distList, munList, spouseList, ancestorList, , genderList, maritalList] = await Promise.all([
           cachedCode(CODE_IDS.PROVINCE).then(extractArray),
           cachedCode(CODE_IDS.WARD).then(extractArray),
           cachedCode(CODE_IDS.DISTRICT).then(extractArray),
@@ -85,16 +119,15 @@ const ClientDetailsPage = () => {
           cachedCode(CODE_IDS.GENDER).then(extractArray),
           cachedCode(CODE_IDS.MARITAL_STATUS).then(extractArray),
         ]);
-        
+
         const arrToMap = (arr) => arr.reduce((acc, curr) => ({ ...acc, [curr.id]: curr.codeValueOptional || curr.codeValue }), {});
-        
+
         setProvinces(arrToMap(provList));
         setWards(arrToMap(wardList));
         setDistricts(arrToMap(distList));
         setMunicipalities(arrToMap(munList));
         setSpouseTypes(arrToMap(spouseList));
         setAncestorTypes(arrToMap(ancestorList));
-        setNomineeRelations(arrToMap(nomineeList));
         setGenders(arrToMap(genderList));
         setMaritalStatuses(arrToMap(maritalList));
       } catch (err) {
@@ -131,7 +164,6 @@ const ClientDetailsPage = () => {
     try {
       await enableClientApi(id);
       toast.success('Client enabled successfully');
-      // Clear cache and re-fetch fresh data
       cache.invalidate(`clients:detail:${id}`);
       cache.invalidateByPrefix('clients:list:');
       const data = await getClientByIdApi(id);
@@ -146,128 +178,168 @@ const ClientDetailsPage = () => {
 
   const pAddr = client.addresses?.find(a => a.addressType === 'P');
   const tAddr = client.addresses?.find(a => a.addressType === 'T');
-  
   const isMinor = client.dateOfBirth?.adDate ? calculateAge(client.dateOfBirth) < 16 : !!client.isMinor;
 
-  const renderAddress = (addr) => {
-    if (!addr) return <p>No Address Provided</p>;
-    return (
-      <div className="form-grid">
-        <div className="detail-item"><strong>Province / प्रदेश:</strong><br/>{provinces[addr.province] || addr.province}</div>
-        <div className="detail-item"><strong>District / जिल्ला:</strong><br/>{districts[addr.district] || addr.district}</div>
-        <div className="detail-item"><strong>Municipality / पालिका:</strong><br/>{municipalities[addr.municipality] || addr.municipality}</div>
-        <div className="detail-item"><strong>Ward / वडा नं:</strong><br/>{wards[addr.wardNo] || addr.wardNo}</div>
-        <div className="detail-item"><strong>Tole / टोल:</strong><br/>{addr.toleName}</div>
-        <div className="detail-item"><strong>House No / घर नं:</strong><br/>{addr.houseNo}</div>
-        <div className="detail-item"><strong>Sabik Address / साविक ठेगाना:</strong><br/>{addr.sabikAddress || '—'}</div>
-      </div>
-    );
-  };
-
   const renderDate = (dateField, fallbackField, clientObj, fieldName) => {
-    // 1. Check direct object (e.g. dateOfMembership.bsDate)
     if (typeof dateField === 'object' && dateField?.bsDate) return dateField.bsDate;
-    
-    // 2. Check direct strings
     if (typeof dateField === 'string' && dateField) return dateField;
     if (typeof fallbackField === 'string' && fallbackField) return fallbackField;
-    
-    // 3. Check common alternate field names in the client object
     if (clientObj && fieldName === 'membership') {
       if (clientObj.membershipDate) return clientObj.membershipDate;
       if (clientObj.membershipDateBs) return clientObj.membershipDateBs;
     }
-    
     return '—';
   };
 
+  const formatAddr = (addr) => {
+    if (!addr) return null;
+    return [addr.toleName, addr.wardNo ? `Ward ${wards[addr.wardNo] || addr.wardNo}` : null, municipalities[addr.municipality] || addr.municipality, districts[addr.district] || addr.district, provinces[addr.province] || addr.province].filter(Boolean).join(', ');
+  };
+
+  const isActive = client.isActive;
+  const age = calculateAge(client.dateOfBirth);
+
   return (
-    <div className="page-content" style={{ maxWidth: '900px', margin: '0 auto' }}>
-      <div className="page-header" style={{ marginBottom: '1.5rem' }}>
-        <div>
-          <h1>Client Details (ग्राहक विवरण)</h1>
-          <p className="page-subtitle">Viewing details for {client.fullNameEnglish || client.fullNameNepali}</p>
-        </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          {!client.isActive && (
-            <button className="btn btn-success" onClick={handleEnable}>Enable</button>
-          )}
-          <button className="btn btn-primary" onClick={() => navigate(`/clients/${id}/edit`)}>Edit</button>
-          <button className="btn btn-outline" onClick={() => navigate('/clients')}>Back to List</button>
+    <div className="page-content" style={{ maxWidth: '960px', margin: '0 auto' }}>
+      {/* ─── Top navigation ─── */}
+      <div style={{ marginBottom: '1.25rem' }}>
+        <button className="btn btn-sm btn-outline" onClick={() => navigate('/clients')} style={{ gap: '0.35rem' }}>
+          <span>←</span> Back to Clients
+        </button>
+      </div>
+
+      {/* ─── Status Banner + Header ─── */}
+      <div style={{
+        background: '#fff',
+        borderRadius: 'var(--radius-lg)',
+        border: '1px solid var(--gray-200)',
+        boxShadow: 'var(--shadow-sm)',
+        marginBottom: '1.5rem',
+        overflow: 'hidden',
+      }}>
+        {/* Status strip */}
+        <div style={{
+          height: '4px',
+          background: isActive
+            ? 'linear-gradient(90deg, var(--success-500), var(--success-600))'
+            : 'linear-gradient(90deg, var(--danger-400), var(--danger-600))',
+        }} />
+        <div style={{ padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            {/* Avatar */}
+            <div style={{
+              width: 52, height: 52,
+              borderRadius: 'var(--radius-lg)',
+              background: 'linear-gradient(135deg, var(--primary-100), var(--primary-200))',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '1.4rem', fontWeight: 700, color: 'var(--primary-700)',
+              flexShrink: 0,
+            }}>
+              {(client.fullNameEnglish || client.fullNameNepali || '?').charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+                <h1 style={{ fontSize: '1.35rem', fontWeight: 700, color: 'var(--gray-900)', margin: 0 }}>
+                  {client.fullNameEnglish || client.fullNameNepali}
+                </h1>
+                <span className={`badge ${isActive ? 'badge-success' : 'badge-danger'}`} style={{ fontSize: '0.7rem' }}>
+                  {isActive ? '● Active' : '● Inactive'}
+                </span>
+                {isMinor && (
+                  <span className="badge badge-warning" style={{ fontSize: '0.7rem' }}>Minor</span>
+                )}
+              </div>
+              <p style={{ fontSize: '0.85rem', color: 'var(--gray-500)', margin: '0.2rem 0 0' }}>
+                Member ID: <strong style={{ color: 'var(--gray-700)' }}>{client.membershipId}</strong>
+                {client.mobileNumber && (<> &nbsp;·&nbsp; {client.mobileNumber}</>)}
+              </p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+            {!isActive && (
+              <button className="btn btn-success btn-sm" onClick={handleEnable}>Enable</button>
+            )}
+            <button className="btn btn-primary btn-sm" onClick={() => navigate(`/clients/${id}/edit`)}>Edit Client</button>
+          </div>
         </div>
       </div>
 
-      <div className="client-form-container">
-        <div className="form-section-card">
-          <div className="form-section-header">
-            <h3 className="form-section-title">General Information (सामान्य जानकारी)</h3>
-          </div>
-          <div className="form-grid">
-            <div className="detail-item"><strong>Membership ID / सदस्यता नम्बर:</strong><br/>{client.membershipId}</div>
-            <div className="detail-item"><strong>Name (English):</strong><br/>{client.fullNameEnglish}</div>
-            <div className="detail-item"><strong>पूरा नाम (Nepali):</strong><br/>{client.fullNameNepali}</div>
-            <div className="detail-item"><strong>Date of Birth (BS) / जन्म मिति:</strong><br/>{renderDate(client.dateOfBirth, client.dateOfBirthBs)}</div>
-            <div className="detail-item"><strong>Gender / लिङ्ग:</strong><br/>{genders[client.gender] || client.gender || '—'}</div>
-            <div className="detail-item"><strong>Marital Status / वैवाहिक स्थिति:</strong><br/>{maritalStatuses[client.maritalStatus] || client.maritalStatus || '—'}</div>
-            <div className="detail-item"><strong>Membership Date (BS) / सदस्यता मिति:</strong><br/>{renderDate(client.dateOfMembership, client.dateOfMembershipBs, client, 'membership')}</div>
-            <div className="detail-item"><strong>Status / अवस्था:</strong><br/>
-              <span className={`badge ${client.isActive ? 'badge-success' : 'badge-danger'}`}>
-                {client.isActive ? 'Active' : 'Inactive'}
-              </span>
-            </div>
-            <div className="detail-item"><strong>Email ID / ईमेल:</strong><br/>{client.emailId || '—'}</div>
-            <div className="detail-item"><strong>Mobile Number / मोबाइल नम्बर:</strong><br/>{client.mobileNumber}</div>
-          </div>
-        </div>
+      {/* ─── Sections ─── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
 
-        <div className="form-section-card">
-          <div className="form-section-header">
-            <h3 className="form-section-title">Identity & Shares</h3>
-          </div>
-          <div className="form-grid">
-            <div className="detail-item"><strong>{isMinor ? 'Date of Birth No / जन्म दर्ता नम्बर' : 'Citizenship No / नागरिकता नम्बर'}:</strong><br/>{client.citizenshipNumber}</div>
-            <div className="detail-item"><strong>{isMinor ? 'DOB Issue District / जन्म दर्ता जारी जिल्ला' : 'Issue District / जारी जिल्ला'}:</strong><br/>{districts[client.citizenshipIssueDistrict] || client.citizenshipIssueDistrict}</div>
-            <div className="detail-item"><strong>{isMinor ? 'DOB Issue Date (BS) / जन्म दर्ता जारी मिति' : 'Issue Date (BS) / जारी मिति'}:</strong><br/>{renderDate(client.citizenshipIssueDate, client.citizenshipIssueDateBs)}</div>
-            <div className="detail-item"><strong>Share Amount / शेयर रकम:</strong><br/>NPR {client.shareAmount}</div>
-            <div className="detail-item"><strong>Share Number / शेयर कित्ता:</strong><br/>{client.shareNumber}</div>
-            <div className="detail-item"><strong>Share Certificate No. / शेयर प्रमाणपत्र नं:</strong><br/>{client.shareCertificateNumber || '—'}</div>
-          </div>
-        </div>
+        {/* General Information */}
+        <Section icon="👤" title="General Information (सामान्य जानकारी)" accentColor="var(--primary-500)">
+          <Field label="Full Name (English)" value={client.fullNameEnglish} />
+          <Field label="पूरा नाम (Nepali)" value={client.fullNameNepali} />
+          <Field label="Date of Birth (BS) / जन्म मिति" value={renderDate(client.dateOfBirth, client.dateOfBirthBs)} />
+          <Field label="Age" value={age !== null ? `${age} years` : null} />
+          <Field label="Gender / लिङ्ग" value={genders[client.gender] || client.gender} />
+          <Field label="Marital Status / वैवाहिक स्थिति" value={maritalStatuses[client.maritalStatus] || client.maritalStatus} />
+          <Field label="Email / ईमेल" value={client.emailId} />
+          <Field label="Mobile / मोबाइल" value={client.mobileNumber} />
+          <Field label="Membership Date (BS) / सदस्यता मिति" value={renderDate(client.dateOfMembership, client.dateOfMembershipBs, client, 'membership')} />
+        </Section>
 
-        <div className="form-section-card">
-          <div className="form-section-header">
-            <h3 className="form-section-title">Family Information (पारिवारिक विवरण)</h3>
-          </div>
-          <div className="form-grid">
-            <div className="detail-item"><strong>Father (English):</strong><br/>{client.fatherNameEnglish}</div>
-            <div className="detail-item"><strong>Father (Nepali) / बुबाको नाम:</strong><br/>{client.fatherNameNepali}</div>
-            <div className="detail-item"><strong>Spouse ({spouseTypes[client.spouseType] || client.spouseType || 'N/A'}) / पति/पत्नीको नाम:</strong><br/>
-              {client.spouseNameEnglish ? `${client.spouseNameEnglish} / ` : ''}{client.spouseNameNepali || '—'}
-            </div>
-            <div className="detail-item"><strong>Ancestor ({ancestorTypes[client.ancestorType] || client.ancestorType || 'Ancestor'}) / पुर्खाको नाम:</strong><br/>
-              {client.ancestorNameEnglish ? `${client.ancestorNameEnglish} / ` : ''}{client.ancestorNameNepali || '—'}
-            </div>
-          </div>
-        </div>
-        
+        {/* Identity & Shares */}
+        <Section icon="🪪" title={isMinor ? 'Birth Registration & Shares' : 'Identity & Shares (परिचय र शेयर)'} accentColor="var(--info-500)">
+          <Field label={isMinor ? 'Birth Registration No / जन्म दर्ता नं' : 'Citizenship No / नागरिकता नं'} value={client.citizenshipNumber} />
+          <Field label={isMinor ? 'DOB Issue District / जन्म दर्ता जारी जिल्ला' : 'Issue District / जारी जिल्ला'} value={districts[client.citizenshipIssueDistrict] || client.citizenshipIssueDistrict} />
+          <Field label={isMinor ? 'DOB Issue Date (BS)' : 'Issue Date (BS) / जारी मिति'} value={renderDate(client.citizenshipIssueDate, client.citizenshipIssueDateBs)} />
+          <Field label="Share Amount / शेयर रकम" value={client.shareAmount ? `NPR ${client.shareAmount}` : null} />
+          <Field label="Share Number / शेयर कित्ता" value={client.shareNumber} />
+          <Field label="Share Certificate No / शेयर प्रमाणपत्र नं" value={client.shareCertificateNumber} />
+        </Section>
 
-        <div className="form-section-card">
-          <div className="form-section-header">
-            <h3 className="form-section-title">Permanent Address (स्थायी ठेगाना)</h3>
-          </div>
-          {renderAddress(pAddr)}
-        </div>
+        {/* Family */}
+        <Section icon="👨‍👩‍👧" title="Family Information (पारिवारिक विवरण)" accentColor="var(--warning-500)">
+          <Field label="Father (English)" value={client.fatherNameEnglish} />
+          <Field label="बुबाको नाम (Nepali)" value={client.fatherNameNepali} />
+          <Field
+            label={`Spouse (${spouseTypes[client.spouseType] || client.spouseType || 'N/A'}) / पति/पत्नी`}
+            value={[client.spouseNameEnglish, client.spouseNameNepali].filter(Boolean).join(' / ') || null}
+          />
+          <Field
+            label={`Ancestor (${ancestorTypes[client.ancestorType] || client.ancestorType || 'Ancestor'}) / पुर्खा`}
+            value={[client.ancestorNameEnglish, client.ancestorNameNepali].filter(Boolean).join(' / ') || null}
+          />
+        </Section>
 
-        <div className="form-section-card">
-          <div className="form-section-header">
-            <h3 className="form-section-title">Temporary Address (अस्थायी ठेगाना)</h3>
-          </div>
-          {renderAddress(tAddr)}
-        </div>
+        {/* Permanent Address */}
+        <Section icon="🏠" title="Permanent Address (स्थायी ठेगाना)" accentColor="var(--success-500)">
+          {pAddr ? (
+            <>
+              <Field label="Province / प्रदेश" value={provinces[pAddr.province] || pAddr.province} />
+              <Field label="District / जिल्ला" value={districts[pAddr.district] || pAddr.district} />
+              <Field label="Municipality / पालिका" value={municipalities[pAddr.municipality] || pAddr.municipality} />
+              <Field label="Ward / वडा नं" value={wards[pAddr.wardNo] || pAddr.wardNo} />
+              <Field label="Tole / टोल" value={pAddr.toleName} />
+              <Field label="House No / घर नं" value={pAddr.houseNo} />
+              <Field label="Sabik Address / साविक ठेगाना" value={pAddr.sabikAddress} full />
+            </>
+          ) : (
+            <div style={{ gridColumn: '1 / -1', color: 'var(--gray-400)', fontStyle: 'italic', fontSize: '0.875rem' }}>No permanent address provided.</div>
+          )}
+        </Section>
+
+        {/* Temporary Address */}
+        <Section icon="📍" title="Temporary Address (अस्थायी ठेगाना)" accentColor="var(--gray-400)">
+          {tAddr ? (
+            <>
+              <Field label="Province / प्रदेश" value={provinces[tAddr.province] || tAddr.province} />
+              <Field label="District / जिल्ला" value={districts[tAddr.district] || tAddr.district} />
+              <Field label="Municipality / पालिका" value={municipalities[tAddr.municipality] || tAddr.municipality} />
+              <Field label="Ward / वडा नं" value={wards[tAddr.wardNo] || tAddr.wardNo} />
+              <Field label="Tole / टोल" value={tAddr.toleName} />
+              <Field label="House No / घर नं" value={tAddr.houseNo} />
+              <Field label="Sabik Address / साविक ठेगाना" value={tAddr.sabikAddress} full />
+            </>
+          ) : (
+            <div style={{ gridColumn: '1 / -1', color: 'var(--gray-400)', fontStyle: 'italic', fontSize: '0.875rem' }}>No temporary address provided.</div>
+          )}
+        </Section>
       </div>
     </div>
   );
 };
 
 export default ClientDetailsPage;
-

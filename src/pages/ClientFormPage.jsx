@@ -352,13 +352,21 @@ const ClientFormPage = () => {
   const handleChange = (e) => {
     let { name, value } = e.target;
 
-    if (name === 'citizenshipNumber') {
+    const nepaliDigitFields = [
+      'membershipId',
+      'shareAmountNumber',
+      'shareCertificateNumber',
+      'citizenshipNumber',
+      'dateOfBirthNumber',
+      'mobileNumber'
+    ];
+
+    if (nepaliDigitFields.includes(name)) {
       if (value && !isValidNumberWithSymbols(value)) return;
       value = convertToNepaliDigits(value);
     }
 
     if (name === 'emailId' && !hasNoNepali(value)) return;
-    if (name === 'mobileNumber' && !isEnglishNumber(value)) return;
 
     setForm(prev => {
       const updated = { ...prev, [name]: value };
@@ -551,8 +559,34 @@ const ClientFormPage = () => {
 
   if (loading) return <FormSkeleton sections={4} fieldsPerSection={6} />;
 
+  /* Section header with icon and accent */
+  const SectionHeader = ({ icon, title, accentColor = 'var(--primary-500)', actions }) => (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '0.85rem 1.25rem',
+      borderBottom: '1px solid var(--gray-100)',
+      borderLeft: `3px solid ${accentColor}`,
+      background: 'var(--gray-50)',
+      borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0',
+      margin: '-1.25rem -1.5rem 1rem -1.5rem',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+        <span style={{ fontSize: '1.1rem' }}>{icon}</span>
+        <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'var(--gray-800)' }}>{title}</h3>
+      </div>
+      {actions && <div>{actions}</div>}
+    </div>
+  );
+
   return (
     <div className="page-content" style={{ maxWidth: '900px', margin: '0 auto' }}>
+      {/* Back navigation */}
+      <div style={{ marginBottom: '1.25rem' }}>
+        <button type="button" className="btn btn-sm btn-outline" onClick={() => navigate('/clients')} style={{ gap: '0.35rem' }}>
+          <span>←</span> Back to Clients
+        </button>
+      </div>
+
       <div className="page-header" style={{ marginBottom: '1.5rem' }}>
         <div>
           <h1>{isEditing ? 'Edit Client (ग्राहक सम्पादन)' : 'Add Client (नयाँ ग्राहक)'}</h1>
@@ -564,9 +598,7 @@ const ClientFormPage = () => {
         
         {/* General Information */}
         <div className="form-section-card">
-          <div className="form-section-header">
-            <h3 className="form-section-title">General Information (सामान्य जानकारी)</h3>
-          </div>
+          <SectionHeader icon="👤" title="General Information (सामान्य जानकारी)" accentColor="var(--primary-500)" />
           <div className="form-grid">
             <div className="form-group">
               <label>Membership ID *</label>
@@ -625,9 +657,7 @@ const ClientFormPage = () => {
 
         {/* Shares Information */}
         <div className="form-section-card">
-          <div className="form-section-header">
-            <h3 className="form-section-title">Shares Information (शेयर विवरण)</h3>
-          </div>
+          <SectionHeader icon="💰" title="Shares Information (शेयर विवरण)" accentColor="var(--success-500)" />
           <div className="form-grid">
             <div className="form-group">
               <label>Share Amount / शेयर रकम</label>
@@ -657,9 +687,7 @@ const ClientFormPage = () => {
 
         {/* Identity Information */}
         <div className="form-section-card">
-          <div className="form-section-header">
-            <h3 className="form-section-title">Identity Information (परिचय विवरण)</h3>
-          </div>
+          <SectionHeader icon="🪨" title="Identity Information (परिचय विवरण)" accentColor="var(--info-500)" />
           <div className="form-grid">
             <div className="form-group">
               <label>{isMinor ? 'Date of Birth Number / जन्म दर्ता नम्बर *' : 'Citizenship Number / नागरिकता नम्बर *'}</label>
@@ -684,9 +712,7 @@ const ClientFormPage = () => {
 
         {/* Family Information */}
         <div className="form-section-card">
-          <div className="form-section-header">
-            <h3 className="form-section-title">Family Information (पारिवारिक विवरण)</h3>
-          </div>
+          <SectionHeader icon="👨‍👩‍👧" title="Family Information (पारिवारिक विवरण)" accentColor="var(--warning-500)" />
           <div className="form-grid">
             <div className="form-group">
               <label>बुबाको नाम (Father Name Nepali) *</label>
@@ -767,9 +793,7 @@ const ClientFormPage = () => {
 
         {/* Permanent Address */}
         <div className="form-section-card">
-          <div className="form-section-header">
-            <h3 className="form-section-title">Permanent Address (स्थायी ठेगाना)</h3>
-          </div>
+          <SectionHeader icon="🏠" title="Permanent Address (स्थायी ठेगाना)" accentColor="var(--success-500)" />
           <div className="form-grid">
             <div className="form-group">
               <label>Province / प्रदेश *</label>
@@ -821,12 +845,11 @@ const ClientFormPage = () => {
 
         {/* Temporary Address */}
         <div className="form-section-card">
-          <div className="form-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 className="form-section-title">Temporary Address (अस्थायी ठेगाना)</h3>
+          <SectionHeader icon="📍" title="Temporary Address (अस्थायी ठेगाना)" accentColor="var(--gray-400)" actions={
             <button type="button" className="btn btn-sm btn-outline" onClick={copyPermanentToTemporary}>
               Same as Permanent
             </button>
-          </div>
+          } />
           <div className="form-grid">
             <div className="form-group">
               <label>Province / प्रदेश *</label>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
 import { searchClientsApi, getCodeValuesApi, addLoanApi, getClientByIdApi, getLoanByIdApi, updateLoanApi, getDocumentWriterByIdApi } from '../services/api';
-import NepaliDatePickerWrapper from '../components/NepaliDatePickerWrapper';
+import NepaliDatePickerWrapper, { getTodayBs, formatBs, formatAd, toNepaliDigits } from '../components/NepaliDatePickerWrapper';
 import DocumentWriterSearchSelect from '../components/DocumentWriterSearchSelect';
 import './ClientLayout.css';
 import { isNepaliAlphaOnly } from '../utils/validation';
@@ -182,6 +182,13 @@ const emptySakshi = {
   _isExisting: false
 };
 
+const getDefaultIssuedDate = () => {
+  const today = getTodayBs();
+  const bsStr = formatBs(today.year, today.month, today.day);
+  const adStr = formatAd(new Date());
+  return { bsDate: toNepaliDigits(bsStr), adDate: adStr };
+};
+
 const emptyForm = {
   clientId: '',
   purposeOfLoan: '',
@@ -191,6 +198,7 @@ const emptyForm = {
   interestRateFormat: '', 
   loanRemainingToBePaid: '',
   repayDateBs: '',
+  loanIssuedDate: null,
   dhanjamaniList: [{ ...emptyDhanjamani }],
   sakshiList: [],
   documentWriterId: '',
@@ -224,7 +232,7 @@ const LoanFormPage = () => {
 
   const isEditing = !!id;
 
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState({ ...emptyForm, loanIssuedDate: getDefaultIssuedDate() });
   const [selectedMainClientName, setSelectedMainClientName] = useState('');
   const [selectedMainClientIncomplete, setSelectedMainClientIncomplete] = useState(false);
   const [selectedMainClientId, setSelectedMainClientId] = useState(null);
@@ -355,6 +363,9 @@ const LoanFormPage = () => {
             interestRateFormat: loanData.interestFormat || loanData.interestRateFormat || 0,
             loanRemainingToBePaid: nepaliToEnglish(loanData.loanRemainingToBePaid),
             repayDateBs: loanData.repayDate?.bsDate || loanData.repayDateBs || '',
+            loanIssuedDate: loanData.loanIssuedDate || loanData.loanIssuedDateBs
+              ? { bsDate: loanData.loanIssuedDateBs || loanData.loanIssuedDate?.bsDate || '', adDate: loanData.loanIssuedDateAd || loanData.loanIssuedDate?.adDate || '' }
+              : getDefaultIssuedDate(),
             dhanjamaniList: (loanData.dhanjamaniDetails || []).map(d => ({
               clientId: d.clientId || d.id || '',
               amount: nepaliToEnglish(d.amountOfDhanjamani || d.amount),
@@ -653,6 +664,16 @@ const LoanFormPage = () => {
       documentWriterId: form.documentWriterId ? Number(form.documentWriterId) : null
     };
 
+    // Include loanIssuedDate only for create, remove for update
+    if (!isEditing && form.loanIssuedDate) {
+      payload.loanIssuedDate = {
+        bsDate: form.loanIssuedDate.bsDate || '',
+        adDate: form.loanIssuedDate.adDate || ''
+      };
+    } else {
+      delete payload.loanIssuedDate;
+    }
+
     delete payload.repayDateBs;
 
     try {
@@ -681,8 +702,34 @@ const LoanFormPage = () => {
 
   if (loading) return <FormSkeleton sections={3} fieldsPerSection={6} />;
 
+  /* Section header with icon and accent */
+  const SectionHeader = ({ icon, title, accentColor = 'var(--primary-500)', actions }) => (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '0.85rem 1.25rem',
+      borderBottom: '1px solid var(--gray-100)',
+      borderLeft: `3px solid ${accentColor}`,
+      background: 'var(--gray-50)',
+      borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0',
+      margin: '-1.25rem -1.5rem 1rem -1.5rem',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+        <span style={{ fontSize: '1.1rem' }}>{icon}</span>
+        <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'var(--gray-800)' }}>{title}</h3>
+      </div>
+      {actions && <div>{actions}</div>}
+    </div>
+  );
+
   return (
     <div className="page-content" style={{ maxWidth: '900px', margin: '0 auto' }}>
+      {/* Back navigation */}
+      <div style={{ marginBottom: '1.25rem' }}>
+        <button type="button" className="btn btn-sm btn-outline" onClick={() => navigate('/loans')} style={{ gap: '0.35rem' }}>
+          <span>←</span> Back to Loans
+        </button>
+      </div>
+
       <div className="page-header" style={{ marginBottom: '1.5rem' }}>
         <div>
           <h1>{isEditing ? 'Edit Loan (कर्जा सम्पादन)' : 'Add New Loan (नयाँ कर्जा)'}</h1>
@@ -693,9 +740,7 @@ const LoanFormPage = () => {
       <form onSubmit={handleSubmit} className="client-form-container">
         {/* Main Loan Details */}
         <div className="form-section-card">
-          <div className="form-section-header">
-            <h3 className="form-section-title">Loan Details (कर्जा विवरण)</h3>
-          </div>
+          <SectionHeader icon="📊" title="Loan Details (कर्जा विवरण)" accentColor="var(--primary-500)" />
           <div className="form-grid">
             <div className="form-group" style={{ gridColumn: '1 / -1' }}>
               <ClientSearchSelect
@@ -776,14 +821,36 @@ const LoanFormPage = () => {
               <NepaliDatePickerWrapper name="repayDateBs" value={form.repayDateBs} className="form-control" onChange={(e) => handleMainChange(e)} />
               {errors.repayDateBs && <span className="form-error">{errors.repayDateBs}</span>}
             </div>
+
+            <div className="form-group">
+              <label>Loan Issued Date (कर्जा जारी मिति) (BS) {!isEditing && '*'}</label>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={form.loanIssuedDate?.bsDate || '—'}
+                  readOnly
+                  disabled
+                  className="form-control"
+                  title="Loan issued date cannot be changed after creation"
+                />
+              ) : (
+                <NepaliDatePickerWrapper
+                  name="loanIssuedDate"
+                  value={form.loanIssuedDate}
+                  className="form-control"
+                  onChange={(e) => {
+                    setForm(p => ({ ...p, loanIssuedDate: e.target.value || null }));
+                  }}
+                />
+              )}
+            </div>
           </div>
         </div>
 
         <div className="form-section-card">
-          <div className="form-section-header" style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <h3 className="form-section-title">Dhanjamani Details (धनजमानी विवरण) *</h3>
+          <SectionHeader icon="🤝" title="Dhanjamani Details (धनजमानी विवरण) *" accentColor="var(--warning-500)" actions={
             <button type="button" className="btn btn-sm btn-outline" onClick={addDhanjamani}>+ Add Dhanjamani</button>
-          </div>
+          } />
 
           {form.dhanjamaniList.map((dj, index) => (
             <div key={index} style={{ borderBottom: '1px solid #eee', paddingBottom: '1rem', marginBottom: '1rem' }}>
@@ -819,13 +886,12 @@ const LoanFormPage = () => {
 
         {/* Sakshi Section */}
         <div className="form-section-card">
-          <div className="form-section-header" style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <h3 className="form-section-title">Sakshi Details (साक्षी विवरण)</h3>
+          <SectionHeader icon="👁️" title="Sakshi Details (साक्षी विवरण)" accentColor="var(--gray-400)" actions={
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button type="button" className="btn btn-sm btn-outline" onClick={() => addSakshi(true)}>+ Existing Client</button>
               <button type="button" className="btn btn-sm btn-outline" onClick={() => addSakshi(false)}>+ New Person</button>
             </div>
-          </div>
+          } />
 
           {form.sakshiList.length === 0 && <p style={{ color: '#666' }}>No Sakshi added. They are optional.</p>}
 
@@ -910,9 +976,7 @@ const LoanFormPage = () => {
 
         {/* Writer Section */}
         <div className="form-section-card">
-          <div className="form-section-header">
-            <h3 className="form-section-title">Writer Details (लेखक विवरण) *</h3>
-          </div>
+          <SectionHeader icon="✍️" title="Writer Details (लेखक विवरण) *" accentColor="var(--info-500)" />
           <div className="form-grid">
             <div className="form-group">
               <label>Full Name (नेपाली नाम) *</label>

@@ -5,6 +5,53 @@ import { getLoanByIdApi, downloadTamsukApi, uploadFinalPdfApi } from '../service
 import html2pdf from 'html2pdf.js';
 import DetailSkeleton from '../components/skeletons/DetailSkeleton';
 import cache from '../utils/cache';
+
+/* ─── Reusable detail field ─── */
+const Field = ({ label, value, full, highlight }) => (
+  <div style={{ gridColumn: full ? '1 / -1' : undefined }}>
+    <div style={{
+      fontSize: '0.75rem', fontWeight: 600, color: 'var(--gray-500)',
+      textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.3rem',
+    }}>
+      {label}
+    </div>
+    <div style={{
+      fontSize: '0.9rem', fontWeight: 500,
+      color: highlight ? 'var(--primary-700)' : 'var(--gray-800)',
+    }}>
+      {value || '—'}
+    </div>
+  </div>
+);
+
+/* ─── Section card ─── */
+const Section = ({ icon, title, accentColor = 'var(--primary-500)', actions, children }) => (
+  <div style={{
+    background: '#fff',
+    borderRadius: 'var(--radius-lg)',
+    border: '1px solid var(--gray-200)',
+    boxShadow: 'var(--shadow-sm)',
+    overflow: 'hidden',
+  }}>
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '0.85rem 1.25rem',
+      borderBottom: '1px solid var(--gray-100)',
+      borderLeft: `3px solid ${accentColor}`,
+      background: 'var(--gray-50)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+        <span style={{ fontSize: '1.1rem' }}>{icon}</span>
+        <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'var(--gray-800)' }}>{title}</h3>
+      </div>
+      {actions && <div>{actions}</div>}
+    </div>
+    <div style={{ padding: '1.25rem' }}>
+      {children}
+    </div>
+  </div>
+);
+
 const LoanDetailsPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -33,7 +80,6 @@ const LoanDetailsPage = () => {
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
       };
 
-      // Generate the PDF blob via html2pdf
       const pdfBlob = await html2pdf().set(opt).from(tempElement).outputPdf('blob');
       const file = new File([pdfBlob], `tamsuk_${loan.id}.pdf`, { type: 'application/pdf' });
 
@@ -80,15 +126,12 @@ const LoanDetailsPage = () => {
       const response = await downloadTamsukApi(loan.id);
       const { htmlContent, isGenerated } = response;
 
-      // html2canvas (used by html2pdf.js) does NOT support CSS writing-mode / vertical text.
-      // We instead open the HTML in a hidden iframe and trigger the browser's native print dialog,
-      // which fully honours all CSS including writing-mode: vertical-lr.
       const iframe = document.createElement('iframe');
       iframe.style.position = 'fixed';
       iframe.style.top = '-9999px';
       iframe.style.left = '-9999px';
-      iframe.style.width = '210mm';   // A4 width
-      iframe.style.height = '297mm';  // A4 height
+      iframe.style.width = '210mm';
+      iframe.style.height = '297mm';
       iframe.style.border = 'none';
       document.body.appendChild(iframe);
 
@@ -97,13 +140,11 @@ const LoanDetailsPage = () => {
       iframeDoc.write(htmlContent);
       iframeDoc.close();
 
-      // Wait for fonts / images inside the iframe to load before printing
       iframe.onload = () => {
         try {
           iframe.contentWindow.focus();
           iframe.contentWindow.print();
         } finally {
-          // Give the print dialog a moment, then clean up the iframe
           setTimeout(() => {
             document.body.removeChild(iframe);
             setDownloadingTamsuk(false);
@@ -127,240 +168,217 @@ const LoanDetailsPage = () => {
   const dList = loan.dhanjamaniDetails || [];
   const sList = loan.sakshiDetails || [];
 
+  const pAddr = (client.addresses || []).find(a => a.addressType === 'P');
+  const addrParts = pAddr
+    ? [pAddr.toleName, pAddr.wardNo ? `Ward ${pAddr.wardNo}` : null, pAddr.municipality, pAddr.district, pAddr.province].filter(Boolean).join(', ')
+    : null;
+
   return (
     <div className="page-content" style={{ maxWidth: '1000px', margin: '0 auto' }}>
-      <div className="page-header" style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <button className="btn btn-sm btn-outline" onClick={() => navigate('/loans')} style={{ marginBottom: '1rem' }}>
-            &larr; Back to Loans
-          </button>
-          <h1>Loan Details (कर्जा विवरण)</h1>
-          <p className="page-subtitle">Viewing details for Loan #{loan.id}</p>
-        </div>
-        <button className="btn btn-primary" onClick={() => navigate(`/loans/${loan.id}/edit`)}>
-          Edit Loan
+      {/* ─── Navigation ─── */}
+      <div style={{ marginBottom: '1.25rem' }}>
+        <button className="btn btn-sm btn-outline" onClick={() => navigate('/loans')} style={{ gap: '0.35rem' }}>
+          <span>←</span> Back to Loans
         </button>
       </div>
 
-      <div className="card" style={{ marginBottom: '2rem', position: 'relative' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #eee', paddingBottom: '0.5rem', marginBottom: '1rem' }}>
-          <h3 style={{ margin: 0 }}>Principal Borrower (मुख्य ऋणी)</h3>
-          <div className="dropdown-container" style={{ position: 'relative' }}>
-            <button
-              className="btn btn-sm btn-outline"
-              style={{ padding: '2px 8px', fontSize: '1.2rem', lineHeight: 1 }}
-              title="Options"
-              onClick={(e) => {
-                const menu = e.currentTarget.nextElementSibling;
-                menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
-              }}
-            >
-              ⋮
-            </button>
-            <div
-              className="dropdown-menu"
-              style={{
-                display: 'none',
-                position: 'absolute',
-                right: 0,
-                top: '100%',
-                backgroundColor: '#fff',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                borderRadius: '4px',
-                zIndex: 10,
-                minWidth: '150px'
-              }}
-            >
-              <button
-                className="dropdown-item"
-                style={{ width: '100%', textAlign: 'left', padding: '10px 15px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '0.9rem' }}
-                onClick={() => navigate(`/clients/${client.id}/edit`)}
-              >
-                ✏️ Edit Client (ग्राहक सम्पादन)
-              </button>
+      {/* ─── Loan Header Banner ─── */}
+      <div style={{
+        background: '#fff',
+        borderRadius: 'var(--radius-lg)',
+        border: '1px solid var(--gray-200)',
+        boxShadow: 'var(--shadow-sm)',
+        marginBottom: '1.5rem',
+        overflow: 'hidden',
+      }}>
+        {/* Top accent */}
+        <div style={{
+          height: '4px',
+          background: 'linear-gradient(90deg, var(--primary-400), var(--primary-600), var(--primary-500))',
+        }} />
+        <div style={{ padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            {/* Loan icon */}
+            <div style={{
+              width: 52, height: 52,
+              borderRadius: 'var(--radius-lg)',
+              background: 'linear-gradient(135deg, var(--primary-100), var(--primary-200))',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '1.5rem', flexShrink: 0,
+            }}>
+              💰
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+                <h1 style={{ fontSize: '1.35rem', fontWeight: 700, color: 'var(--gray-900)', margin: 0 }}>
+                  Loan #{loan.id}
+                </h1>
+                {loan.isTamsukGenerated ? (
+                  <span className="badge badge-success" style={{ fontSize: '0.7rem' }}>● Tamsuk Generated</span>
+                ) : (
+                  <span className="badge badge-warning" style={{ fontSize: '0.7rem' }}>● Pending Tamsuk</span>
+                )}
+              </div>
+              <p style={{ fontSize: '0.85rem', color: 'var(--gray-500)', margin: '0.2rem 0 0' }}>
+                Client: <strong style={{ color: 'var(--gray-700)' }}>{client.fullNameNepali || loan.clientName || '—'}</strong>
+                {client.membershipId && (<> &nbsp;·&nbsp; ID: {client.membershipId}</>)}
+              </p>
             </div>
           </div>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-          <div>
-            <strong style={{ display: 'block', color: '#666', fontSize: '0.85rem' }}>Name (English / Nepali)</strong>
-            <span>{client.fullNameEnglish || '—'} / {client.fullNameNepali || loan.clientName || '—'}</span>
-          </div>
-          <div>
-            <strong style={{ display: 'block', color: '#666', fontSize: '0.85rem' }}>Membership ID</strong>
-            <span>{client.membershipId || '—'}</span>
-          </div>
-          <div>
-            <strong style={{ display: 'block', color: '#666', fontSize: '0.85rem' }}>Citizenship No. / नागरिकता नं</strong>
-            <span>{client.citizenshipNumber || '—'}</span>
-          </div>
-          <div>
-            <strong style={{ display: 'block', color: '#666', fontSize: '0.85rem' }}>Contact Number</strong>
-            <span>{client.mobileNumber || '—'}</span>
-          </div>
-          {(() => {
-            const pAddr = (client.addresses || []).find(a => a.addressType === 'P');
-            if (!pAddr) return null;
-            const parts = [
-              pAddr.toleName,
-              pAddr.wardNo ? `Ward ${pAddr.wardNo}` : null,
-              pAddr.municipality,
-              pAddr.district,
-              pAddr.province,
-            ].filter(Boolean);
-            return (
-              <div style={{ gridColumn: '1 / -1' }}>
-                <strong style={{ display: 'block', color: '#666', fontSize: '0.85rem' }}>Permanent Address / स्थायी ठेगाना</strong>
-                <span>{parts.join(', ') || '—'}</span>
-              </div>
-            );
-          })()}
+          <button className="btn btn-primary btn-sm" onClick={() => navigate(`/loans/${loan.id}/edit`)}>
+            Edit Loan
+          </button>
         </div>
       </div>
 
-      <div className="card" style={{ marginBottom: '2rem' }}>
-        <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '0.5rem', marginBottom: '1rem' }}>Loan Info (कर्जा जानकारी)</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-          <div>
-            <strong style={{ display: 'block', color: '#666', fontSize: '0.85rem' }}>Loan Amount</strong>
-            <span>{loan.loanAmount || '—'}</span>
-          </div>
-          <div>
-            <strong style={{ display: 'block', color: '#666', fontSize: '0.85rem' }}>Interest Rate</strong>
-            <span>{loan.interestRate ? `${loan.interestRate}%` : '—'}</span>
-          </div>
-          <div>
-            <strong style={{ display: 'block', color: '#666', fontSize: '0.85rem' }}>Interest Format</strong>
-            <span>{loan.interestFormat || '—'}</span>
-          </div>
-          <div>
-            <strong style={{ display: 'block', color: '#666', fontSize: '0.85rem' }}>Repayment Date (BS)</strong>
-            <span>{loan.repayDateBs || (loan.repayDate && loan.repayDate.bsDate) || loan.loanRepaymentDateBs || '—'}</span>
-          </div>
-        </div>
-      </div>
+      {/* ─── Sections ─── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
 
-      <div className="card" style={{ marginBottom: '2rem' }}>
-        <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '0.5rem', marginBottom: '1rem' }}>Guarantors (धनजमानी विवरण)</h3>
-        {dList.length === 0 ? (
-          <p style={{ color: '#666' }}>No guarantors listed.</p>
-        ) : (
-          <div className="table-wrapper">
-            <table className="data-table" style={{ fontSize: '0.9rem' }}>
-              <thead>
-                <tr>
-                  <th>S.N.</th>
-                  <th>Name</th>
-                  <th> Member ID</th>
-                  <th>Contact</th>
-                  <th>Guaranteed Amnt</th>
-                  <th style={{ textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {dList.map((d, i) => (
-                  <tr key={i}>
-                    <td>{i + 1}</td>
-                    <td>{d.nameNepali || '—'}</td>
-                    <td>{d.membershipId || '—'}</td>
-                    <td>{d.contactNumber || '—'}</td>
-                    <td>{d.amountOfDhanjamani || '—'}</td>
-                    <td style={{ textAlign: 'right' }}>
-                      <div style={{ position: 'relative', display: 'inline-block' }}>
-                        <button
-                          className="btn btn-sm btn-outline"
-                          style={{ padding: '0 6px', fontSize: '1.2rem', lineHeight: 1 }}
-                          onClick={(e) => {
-                            const menu = e.currentTarget.nextElementSibling;
-                            menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
-                          }}
-                        >
-                          ⋮
-                        </button>
-                        <div
-                          style={{
-                            display: 'none',
-                            position: 'absolute',
-                            right: 0,
-                            top: '100%',
-                            backgroundColor: '#fff',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                            borderRadius: '4px',
-                            zIndex: 10,
-                            minWidth: '130px',
-                            textAlign: 'left'
-                          }}
-                        >
-                          <button
-                            style={{ width: '100%', padding: '8px 12px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '0.85rem' }}
-                            onClick={() => d.clientId && navigate(`/clients/${d.clientId}/edit`)}
-                          >
-                            ✏️ Edit Client
+        {/* Principal Borrower */}
+        <Section
+          icon="👤"
+          title="Principal Borrower (मुख्य ऋणी)"
+          accentColor="var(--primary-500)"
+          actions={
+            client.id && (
+              <button className="btn btn-sm btn-outline" onClick={() => navigate(`/clients/${client.id}/edit`)} style={{ fontSize: '0.75rem' }}>
+                ✏️ Edit Client
+              </button>
+            )
+          }
+        >
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.15rem' }}>
+            <Field label="Name (English / Nepali)" value={`${client.fullNameEnglish || '—'} / ${client.fullNameNepali || loan.clientName || '—'}`} />
+            <Field label="Membership ID" value={client.membershipId} />
+            <Field label="Citizenship / नागरिकता नं" value={client.citizenshipNumber} />
+            <Field label="Contact Number" value={client.mobileNumber} />
+            {addrParts && <Field label="Permanent Address / स्थायी ठेगाना" value={addrParts} full />}
+          </div>
+        </Section>
+
+        {/* Loan Info */}
+        <Section icon="📊" title="Loan Info (कर्जा जानकारी)" accentColor="var(--info-500)">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.15rem' }}>
+            <Field label="Loan Amount" value={loan.loanAmount} highlight />
+            <Field label="Interest Rate" value={loan.interestRate ? `${loan.interestRate}%` : null} />
+            <Field label="Interest Format" value={loan.interestFormat} />
+            <Field label="Remaining to be Paid" value={loan.loanRemainingToBePaid} highlight />
+            <Field label="Repayment Type" value={loan.loanRepaymentType} />
+            <Field label="Purpose" value={loan.purposeOfLoan} />
+            <Field label="Issued Date (BS)" value={loan.loanIssuedDateBs} />
+            <Field label="Repayment Date (BS)" value={loan.repayDateBs || (loan.repayDate && loan.repayDate.bsDate) || loan.loanRepaymentDateBs} />
+          </div>
+        </Section>
+
+        {/* Guarantors */}
+        <Section icon="🤝" title="Guarantors (धनजमानी विवरण)" accentColor="var(--warning-500)">
+          {dList.length === 0 ? (
+            <p style={{ color: 'var(--gray-400)', fontStyle: 'italic', fontSize: '0.875rem' }}>No guarantors listed.</p>
+          ) : (
+            <div className="table-wrapper">
+              <table className="data-table" style={{ fontSize: '0.875rem' }}>
+                <thead>
+                  <tr>
+                    <th>S.N.</th>
+                    <th>Name</th>
+                    <th>Member ID</th>
+                    <th>Contact</th>
+                    <th>Guaranteed Amount</th>
+                    <th style={{ textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dList.map((d, i) => (
+                    <tr key={i}>
+                      <td>{i + 1}</td>
+                      <td style={{ fontWeight: 500 }}>{d.nameNepali || '—'}</td>
+                      <td>{d.membershipId || '—'}</td>
+                      <td>{d.contactNumber || '—'}</td>
+                      <td>{d.amountOfDhanjamani || '—'}</td>
+                      <td style={{ textAlign: 'right' }}>
+                        {d.clientId && (
+                          <button className="btn btn-sm btn-outline" onClick={() => navigate(`/clients/${d.clientId}/edit`)} style={{ fontSize: '0.75rem' }}>
+                            ✏️ Edit
                           </button>
-                        </div>
-                      </div>
-                    </td>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Section>
+
+        {/* Witnesses */}
+        <Section icon="👁️" title="Witnesses (साक्षी विवरण)" accentColor="var(--gray-400)">
+          {sList.length === 0 ? (
+            <p style={{ color: 'var(--gray-400)', fontStyle: 'italic', fontSize: '0.875rem' }}>No witnesses listed.</p>
+          ) : (
+            <div className="table-wrapper">
+              <table className="data-table" style={{ fontSize: '0.875rem' }}>
+                <thead>
+                  <tr>
+                    <th>S.N.</th>
+                    <th>Name</th>
+                    <th>Age</th>
+                    <th>Gender</th>
+                    <th>Address</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                </thead>
+                <tbody>
+                  {sList.map((s, i) => (
+                    <tr key={i}>
+                      <td>{i + 1}</td>
+                      <td style={{ fontWeight: 500 }}>{s.fullNameNepali || s.fullName || '—'}</td>
+                      <td>{s.age || '—'}</td>
+                      <td>{s.gender || '—'}</td>
+                      <td>{[s.localGovernment, s.wardNumber ? `Ward ${s.wardNumber}` : null, s.district, s.province].filter(Boolean).join(', ') || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Section>
       </div>
 
-      <div className="card">
-        <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '0.5rem', marginBottom: '1rem' }}>Witnesses (साक्षी विवरण)</h3>
-        {sList.length === 0 ? (
-          <p style={{ color: '#666' }}>No witnesses listed.</p>
-        ) : (
-          <div className="table-wrapper">
-            <table className="data-table" style={{ fontSize: '0.9rem' }}>
-              <thead>
-                <tr>
-                  <th>S.N.</th>
-                  <th>Name</th>
-                  <th>Age</th>
-                  <th>Gender</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sList.map((s, i) => (
-                  <tr key={i}>
-                    <td>{i + 1}</td>
-                    <td>{s.fullNameNepali || s.fullName || '—'}</td>
-                    <td>{s.age || '—'}</td>
-                    <td>{s.gender || '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '2rem', gap: '1rem' }}>
+      {/* ─── Actions Footer ─── */}
+      <div style={{
+        display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap',
+        gap: '0.75rem', marginTop: '1.5rem',
+        padding: '1rem 1.25rem',
+        background: '#fff',
+        borderRadius: 'var(--radius-lg)',
+        border: '1px solid var(--gray-200)',
+        boxShadow: 'var(--shadow-sm)',
+      }}>
         <button
           className="btn btn-primary"
           onClick={handleDownloadTamsuk}
           disabled={downloadingTamsuk}
+          style={{ gap: '0.4rem' }}
         >
-          {downloadingTamsuk ? 'Downloading...' : 'Download Tamsuk (तमसुक डाउनलोड)'}
+          <span>📄</span>
+          {downloadingTamsuk ? 'Downloading...' : 'Download Tamsuk (तमसुक)'}
         </button>
         {loan.isTamsukGenerated && (
           <button
-            className="btn btn-warning"
+            className="btn btn-outline"
             onClick={() => navigate(`/loans/${loan.id}/regenerate-tamsuk`)}
+            style={{ gap: '0.4rem' }}
           >
-            Regenerate Document
+            <span>🔄</span> Regenerate Document
           </button>
         )}
         {hasPreviewed && (
           <button
             className="btn btn-success"
-            style={{ padding: '0.6rem 1.2rem', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '500' }}
             onClick={handleUploadFinal}
             disabled={uploadingFinal}
+            style={{ gap: '0.4rem' }}
           >
+            <span>✅</span>
             {uploadingFinal ? 'Saving Final...' : 'Submit Final Tamsuk'}
           </button>
         )}

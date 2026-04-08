@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getAdminAllUsersApi, getAdminPublishedUsersApi, updateUserStatusApi } from '../services/api';
+import { getAdminAllUsersApi, getAdminPublishedUsersApi, updateUserStatusApi, getAdminUserByIdApi, getNotificationAvailabilityApi, getUserProfileApi } from '../services/api';
 import { useToast } from '../context/ToastContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 import NepaliDatePickerWrapper from '../components/NepaliDatePickerWrapper';
+import { useAuth } from '../context/AuthContext';
 
 const FILTER_TABS = [
   { key: 'all', label: 'All Users', icon: '👥' },
@@ -37,10 +38,31 @@ const UserStatusManagement = () => {
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
   const [editingUser, setEditingUser] = useState(null);
+  const [editingUserDetails, setEditingUserDetails] = useState(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
   const [editPublished, setEditPublished] = useState(false);
   const [editActiveUntil, setEditActiveUntil] = useState('');
+  
+  // Notification limits
+  const [editSmsUpdate, setEditSmsUpdate] = useState(0);
+  const [editEmailUpdate, setEditEmailUpdate] = useState(0);
+  
   const [submitting, setSubmitting] = useState(false);
   const toast = useToast();
+  const { user: currentUser } = useAuth();
+  const [adminQuota, setAdminQuota] = useState(null);
+
+  useEffect(() => {
+    const fetchAdminQuota = async () => {
+      try {
+        const quotaData = await getNotificationAvailabilityApi();
+        setAdminQuota(quotaData);
+      } catch (err) {
+        console.error('Failed to load admin notification quota', err);
+      }
+    };
+    fetchAdminQuota();
+  }, []);
 
   const fetchUsers = useCallback(async (filter) => {
     setLoading(true);
@@ -70,17 +92,34 @@ const UserStatusManagement = () => {
     setActiveFilter(filter);
   };
 
-  const openEditModal = (user) => {
+  const openEditModal = async (user) => {
     setEditingUser(user);
     setEditPublished(user.published ?? false);
     // Keep the entire date object so adDate is preserved
     setEditActiveUntil(user.activeUntil || '');
+    
+    // Fetch full details for notification availability
+    setDetailsLoading(true);
+    setEditingUserDetails(null);
+    setEditSmsUpdate(0);
+    setEditEmailUpdate(0);
+    try {
+      const details = await getAdminUserByIdApi(user.userId);
+      setEditingUserDetails(details);
+    } catch (err) {
+      toast.error('Failed to load user complete details');
+    } finally {
+      setDetailsLoading(false);
+    }
   };
 
   const closeEditModal = () => {
     setEditingUser(null);
+    setEditingUserDetails(null);
     setEditPublished(false);
     setEditActiveUntil('');
+    setEditSmsUpdate(0);
+    setEditEmailUpdate(0);
   };
 
   const handleSaveStatus = async () => {
@@ -96,11 +135,18 @@ const UserStatusManagement = () => {
         adDate: null
       };
 
-      await updateUserStatusApi({
+      const payload = {
         userId: editingUser.userId,
         published: editPublished,
         activeUntil: activeUntilPayload,
-      });
+      };
+
+      payload.smsAllowed = editingUserDetails?.notificationAvailability?.smsAvailable || 0;
+      payload.emailAllowed = editingUserDetails?.notificationAvailability?.emailAvailable || 0;
+      payload.smsUpdate = parseInt(editSmsUpdate, 10) || 0;
+      payload.emailUpdate = parseInt(editEmailUpdate, 10) || 0;
+
+      await updateUserStatusApi(payload);
 
       toast.success('User status updated successfully');
       closeEditModal();
@@ -116,6 +162,46 @@ const UserStatusManagement = () => {
     <div className="page-content">
       <h1>User Status Management</h1>
       <p className="page-subtitle">Manage published status and validity period for accepted users</p>
+
+      {adminQuota && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+          <div className="notification-limits-card" style={{ background: '#eff6ff', padding: '1rem', borderRadius: '8px', border: '1px solid #bfdbfe' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h4 style={{ margin: 0, color: '#1e40af', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span>💬</span> Admin SMS Quota
+                </h4>
+                <p style={{ margin: 0, marginTop: '0.25rem', fontSize: '0.9rem', color: '#3b82f6' }}>
+                  Remaining: <strong>{adminQuota.smsAvailable}</strong> | Used: <strong>{adminQuota.smsUsedTillTheDate}</strong>
+                </p>
+              </div>
+              <div>
+                <span className={`badge ${adminQuota.smsIsActive ? 'badge-success' : 'badge-danger'}`} style={{ fontSize: '0.8rem' }}>
+                  {adminQuota.smsIsActive ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="notification-limits-card" style={{ background: '#eff6ff', padding: '1rem', borderRadius: '8px', border: '1px solid #bfdbfe' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h4 style={{ margin: 0, color: '#1e40af', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span>📧</span> Admin Email Quota
+                </h4>
+                <p style={{ margin: 0, marginTop: '0.25rem', fontSize: '0.9rem', color: '#3b82f6' }}>
+                  Remaining: <strong>{adminQuota.emailAvailable}</strong> | Used: <strong>{adminQuota.emailUsedTillTheDate}</strong>
+                </p>
+              </div>
+              <div>
+                <span className={`badge ${adminQuota.emailIsActive ? 'badge-success' : 'badge-danger'}`} style={{ fontSize: '0.8rem' }}>
+                  {adminQuota.emailIsActive ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Filter Tabs */}
       <div className="status-tabs">
@@ -227,6 +313,52 @@ const UserStatusManagement = () => {
             </div>
 
             <div className="modal-form-section">
+              {/* Notification Limits */}
+              {detailsLoading ? (
+                <div className="form-group" style={{ textAlign: 'center', padding: '1rem' }}>
+                  <LoadingSpinner />
+                  <p style={{ marginTop: '0.5rem', color: '#64748b' }}>Loading notification details...</p>
+                </div>
+              ) : editingUserDetails && (
+                <div className="notification-limits-card" style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid #e2e8f0' }}>
+                  <h4 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1rem', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span>✉️</span> Notification Allocations
+                  </h4>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label style={{ fontSize: '0.85rem' }}>SMS Remaining (Used)</label>
+                      <div style={{ fontWeight: 600, color: '#3b82f6', marginBottom: '0.5rem', fontSize: '1.1rem' }}>
+                        {editingUserDetails.notificationAvailability?.smsAvailable || 0} <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 'normal' }}>({editingUserDetails.notificationAvailability?.smsUsedTillTheDate || 0} used)</span>
+                      </div>
+                      <label style={{ fontSize: '0.85rem' }}>Add/Reduce SMS Quota</label>
+                      <input 
+                        type="number" 
+                        value={editSmsUpdate}
+                        onChange={(e) => setEditSmsUpdate(e.target.value)}
+                        className="form-input"
+                        placeholder="e.g. 10 or -5"
+                      />
+                    </div>
+                    
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label style={{ fontSize: '0.85rem' }}>Email Remaining (Used)</label>
+                      <div style={{ fontWeight: 600, color: '#3b82f6', marginBottom: '0.5rem', fontSize: '1.1rem' }}>
+                        {editingUserDetails.notificationAvailability?.emailAvailable || 0} <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 'normal' }}>({editingUserDetails.notificationAvailability?.emailUsedTillTheDate || 0} used)</span>
+                      </div>
+                      <label style={{ fontSize: '0.85rem' }}>Add/Reduce Email Quota</label>
+                      <input 
+                        type="number" 
+                        value={editEmailUpdate}
+                        onChange={(e) => setEditEmailUpdate(e.target.value)}
+                        className="form-input"
+                        placeholder="e.g. 10 or -5"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Published Toggle */}
               <div className="form-group">
                 <label>Published Status</label>

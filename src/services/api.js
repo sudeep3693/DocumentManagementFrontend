@@ -231,6 +231,11 @@ export const updateLoanApi = async (loanId, loanData) => {
   return response.data;
 };
 
+export const completeLoanApi = async (loanId, data) => {
+  const response = await axiosInstance.post(`/api/v1/loans/${loanId}/complete`, data);
+  return response.data;
+};
+
 export const getLoansByClientIdApi = async (clientId, params) => {
   const response = await axiosInstance.get(`/api/v1/loans/client/${clientId}`, { params });
   return response.data;
@@ -296,6 +301,11 @@ export const changeUserPasswordApi = async (data) => {
 };
 
 // ==================== NOTIFICATION SERVICES (Real Backend) ====================
+
+export const getNotificationAvailabilityApi = async () => {
+  const response = await axiosInstance.get(`/api/notification-availability`);
+  return response.data;
+};
 
 export const sendSmsApi = async (data) => {
   const response = await axiosInstance.post('/api/v1/notification/sms/send', data);

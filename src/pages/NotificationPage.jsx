@@ -1,6 +1,7 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useToast } from '../context/ToastContext';
-import { sendSmsApi, sendBulkSmsApi, sendBulkEmailApi } from '../services/api';
+import { sendSmsApi, sendBulkSmsApi, sendBulkEmailApi, getNotificationAvailabilityApi, getUserProfileApi } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 /* ───────── helpers ───────── */
 const fmt = (n) => n.toLocaleString('en-IN');
@@ -113,6 +114,20 @@ const SendButton = ({ sending, onClick, label }) => (
    ═══════════════════════════════════════════════════════════ */
 const NotificationPage = () => {
   const toast = useToast();
+  const { user: currentUser } = useAuth();
+  const [quota, setQuota] = useState(null);
+
+  useEffect(() => {
+    const fetchQuota = async () => {
+      try {
+        const quotaData = await getNotificationAvailabilityApi();
+        setQuota(quotaData);
+      } catch (err) {
+        console.error('Failed to load notification availability', err);
+      }
+    };
+    fetchQuota();
+  }, []);
 
   /* ── top-level tab ── */
   const [mainTab, setMainTab] = useState('sms');
@@ -369,6 +384,46 @@ const NotificationPage = () => {
         </button>
         <div className="notif-tab-indicator" style={{ transform: `translateX(${mainTab === 'email' ? '100%' : '0'})` }} />
       </div>
+
+      {quota && mainTab === 'sms' && (
+        <div className="notification-limits-card" style={{ background: '#eff6ff', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid #bfdbfe' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h4 style={{ margin: 0, color: '#1e40af', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span>💬</span> Your SMS Quota
+              </h4>
+              <p style={{ margin: 0, marginTop: '0.25rem', fontSize: '0.9rem', color: '#3b82f6' }}>
+                Remaining: <strong>{quota.smsAvailable}</strong> | Used: <strong>{quota.smsUsedTillTheDate}</strong>
+              </p>
+            </div>
+            <div>
+              <span className={`badge ${quota.smsIsActive ? 'badge-success' : 'badge-danger'}`} style={{ fontSize: '0.8rem' }}>
+                {quota.smsIsActive ? 'Active' : 'Inactive'}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {quota && mainTab === 'email' && (
+        <div className="notification-limits-card" style={{ background: '#eff6ff', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid #bfdbfe' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h4 style={{ margin: 0, color: '#1e40af', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span>📧</span> Your Email Quota
+              </h4>
+              <p style={{ margin: 0, marginTop: '0.25rem', fontSize: '0.9rem', color: '#3b82f6' }}>
+                Remaining: <strong>{quota.emailAvailable}</strong> | Used: <strong>{quota.emailUsedTillTheDate}</strong>
+              </p>
+            </div>
+            <div>
+              <span className={`badge ${quota.emailIsActive ? 'badge-success' : 'badge-danger'}`} style={{ fontSize: '0.8rem' }}>
+                {quota.emailIsActive ? 'Active' : 'Inactive'}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ═══════════════════ SMS TAB ═══════════════════ */}
       {mainTab === 'sms' && (

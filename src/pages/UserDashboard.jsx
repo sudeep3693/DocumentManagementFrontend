@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getClientsApi, getLoansApi, getAllDocumentWritersApi, getUserProfileApi } from '../services/api';
+import { getClientsApi, getLoansApi, getAllDocumentWritersApi, getUserProfileApi, getPublicNoticesApi } from '../services/api';
 import cache from '../utils/cache';
 
 /* ─── Skeleton card ─── */
@@ -22,17 +22,19 @@ const UserDashboard = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
+  const [notices, setNotices] = useState([]);
 
   useEffect(() => {
     const load = async () => {
       try {
         // Fire all requests in parallel
-        const [clientsRes, loansRes, completedRes, writersRes, profileRes] = await Promise.all([
+        const [clientsRes, loansRes, completedRes, writersRes, profileRes, noticesRes] = await Promise.all([
           getClientsApi({ page: 0, size: 1 }).catch(() => ({ totalElements: 0 })),
           getLoansApi({ completed: false, page: 0, size: 1 }).catch(() => ({ totalElements: 0 })),
           getLoansApi({ completed: true, page: 0, size: 1 }).catch(() => ({ totalElements: 0 })),
           getAllDocumentWritersApi({ page: 0, size: 1 }).catch(() => ({ totalElements: 0 })),
           getUserProfileApi().catch(() => null),
+          getPublicNoticesApi({ page: 0, size: 6, sort: 'id,desc' }).catch(() => ({ content: [] }))
         ]);
 
         setStats({
@@ -42,6 +44,7 @@ const UserDashboard = () => {
           documentWriters: writersRes.totalElements || writersRes.length || 0,
         });
         setProfile(profileRes);
+        setNotices(noticesRes.content || []);
       } catch {
         // ignore
       } finally {
@@ -174,6 +177,70 @@ const UserDashboard = () => {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* ─── Notices Section ─── */}
+      <div style={{ marginTop: '2.5rem' }}>
+        <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--gray-800)', marginBottom: '1.25rem' }}>
+          Announcements & Notices
+        </h3>
+        
+        {loading ? (
+          <p style={{ color: 'var(--gray-500)' }}>Loading notices...</p>
+        ) : notices.length === 0 ? (
+          <p style={{ color: 'var(--gray-500)' }}>No active notices right now.</p>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
+            {notices.map(notice => (
+              <div 
+                key={notice.id} 
+                onClick={() => navigate(`/notices/${notice.id}`)}
+                style={{
+                  background: '#fff', borderRadius: 'var(--radius-lg)', overflow: 'hidden',
+                  border: '1px solid var(--gray-200)', boxShadow: 'var(--shadow-sm)', cursor: 'pointer',
+                  transition: 'transform 0.2s, box-shadow 0.2s', display: 'flex', flexDirection: 'column'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.transform = 'translateY(-4px)';
+                  e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.transform = 'none';
+                  e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                }}
+              >
+                {notice.images && notice.images.length > 0 ? (
+                  <div style={{ height: '160px', width: '100%', overflow: 'hidden' }}>
+                    <img 
+                      src={notice.images[0].imageUrl} 
+                      alt="Notice Cover" 
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  </div>
+                ) : (
+                  <div style={{ 
+                    height: '160px', width: '100%', 
+                    background: 'linear-gradient(135deg, var(--primary-500), var(--primary-700))',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
+                  }}>
+                    <span style={{ fontSize: '3rem', opacity: 0.9 }}>📢</span>
+                  </div>
+                )}
+                <div style={{ padding: '1.25rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', color: 'var(--gray-900)' }}>
+                    {notice.title}
+                  </h4>
+                  <p style={{ 
+                    margin: 0, fontSize: '0.9rem', color: 'var(--gray-600)',
+                    display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden'
+                  }}>
+                    {notice.description}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

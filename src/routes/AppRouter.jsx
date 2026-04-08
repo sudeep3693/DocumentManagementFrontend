@@ -24,6 +24,9 @@ import LoanDetailsPage from '../pages/LoanDetailsPage';
 import RegenerateDocumentPage from '../pages/RegenerateDocumentPage';
 import DocumentWriterManagement from '../pages/DocumentWriterManagement';
 import NotificationPage from '../pages/NotificationPage';
+import AdminNoticeManagement from '../pages/AdminNoticeManagement';
+import AdminNoticeForm from '../pages/AdminNoticeForm';
+import UserNoticeDetail from '../pages/UserNoticeDetail';
 
 const AuthRedirect = ({ children }) => {
   const { isAuthenticated, role, status } = useAuth();
@@ -67,6 +70,7 @@ const AppRouter = () => {
           <Route path="/loans/:id/regenerate-tamsuk" element={<RegenerateDocumentPage />} />
           <Route path="/document-writers" element={<DocumentWriterManagement />} />
           <Route path="/notifications" element={<NotificationPage />} />
+          <Route path="/notices/:id" element={<UserNoticeDetail />} />
           <Route path="/profile" element={<Profile />} />
         </Route>
 
@@ -80,6 +84,9 @@ const AppRouter = () => {
           <Route path="/admin/users" element={<UserManagement />} />
           <Route path="/admin/users/:onboardingSessionId" element={<UserDetailPage />} />
           <Route path="/admin/user-status" element={<UserStatusManagement />} />
+          <Route path="/admin/notices" element={<AdminNoticeManagement />} />
+          <Route path="/admin/notices/new" element={<AdminNoticeForm />} />
+          <Route path="/admin/notices/:id/edit" element={<AdminNoticeForm />} />
         </Route>
 
         {/* Catch all */}

@@ -321,3 +321,57 @@ export const sendBulkEmailApi = async (data) => {
   const response = await axiosInstance.post('/api/v1/notification/email/bulk-email', data);
   return response.data;
 };
+
+// ==================== NOTICE SERVICES (Admin) ====================
+
+export const getNoticesApi = async (params) => {
+  const response = await axiosInstance.get('/api/v1/admin/notices', { params });
+  return response.data;
+};
+
+export const getNoticeByIdApi = async (noticeId) => {
+  const response = await axiosInstance.get(`/api/v1/admin/notices/${noticeId}`);
+  return response.data;
+};
+
+export const addNoticeApi = async (formData) => {
+  const response = await axiosInstance.post('/api/v1/admin/notices', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data;
+};
+
+export const updateNoticeApi = async (noticeId, formData) => {
+  const response = await axiosInstance.put(`/api/v1/admin/notices/${noticeId}`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data;
+};
+
+export const deleteNoticeApi = async (noticeId) => {
+  const response = await axiosInstance.delete(`/api/v1/admin/notices/${noticeId}`);
+  return response.data;
+};
+
+export const deleteNoticeImageApi = async (imageId) => {
+  const response = await axiosInstance.delete(`/api/v1/admin/notices/images/${imageId}`);
+  return response.data;
+};
+
+// ==================== NOTICE SERVICES (User/Public) ====================
+
+export const getPublicNoticesApi = async (params) => {
+  const response = await axiosInstance.get('/api/v1/notices', { params });
+  return response.data;
+};
+
+export const getPublicNoticeByIdApi = async (noticeId) => {
+  const response = await axiosInstance.get(`/api/v1/notices/${noticeId}`);
+  return response.data;
+};
+
+

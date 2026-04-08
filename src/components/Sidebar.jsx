@@ -17,6 +17,7 @@ const Sidebar = ({ isOpen, onToggle, onMouseEnter, onMouseLeave }) => {
     { to: '/admin/dashboard', label: 'Dashboard', icon: '📊' },
     { to: '/admin/users', label: 'User Management', icon: '👥' },
     { to: '/admin/user-status', label: 'User Status', icon: '🔄' },
+    { to: '/admin/notices', label: 'Notices', icon: '📢' },
   ];
 
   const userLinks = [

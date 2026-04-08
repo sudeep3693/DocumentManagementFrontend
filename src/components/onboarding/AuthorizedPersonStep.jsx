@@ -6,8 +6,7 @@ import {
   isNepaliAlphaOnly, 
   isValidNumberWithSymbols,
   convertToNepaliDigits,
-  hasNoNepali,
-  isEnglishNumber 
+  hasNoNepali
 } from '../../utils/validation';
 
 const CODE_DISTRICT = 1002;
@@ -90,21 +89,25 @@ const AuthorizedPersonStep = ({ prefill, formData, onNext, onBack }) => {
     
     const payload = {
       ...form,
-      citizenshipNo: convertToNepaliDigits(form.citizenshipNo),
       citizenshipIssuedDistrict: parseInt(form.citizenshipIssuedDistrict, 10),
     };
     onNext(payload);
   };
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    let { name, value } = e.target;
 
     // Real-time filtering
     if (name === 'fullName' && !isValidEnglishName(value)) return;
     if (name === 'fullNameNepali' && !isNepaliAlphaOnly(value)) return;
-    if (name === 'contactNo' && !isEnglishNumber(value)) return;
+    if (name === 'contactNo') {
+      value = convertToNepaliDigits(value);
+    }
     if (name === 'emailAddress' && !hasNoNepali(value)) return;
-    if (name === 'citizenshipNo' && value && !isValidNumberWithSymbols(value)) return;
+    if (name === 'citizenshipNo') {
+      if (value && !isValidNumberWithSymbols(value)) return;
+      value = convertToNepaliDigits(value);
+    }
 
     setForm({ ...form, [name]: value });
     if (errors[name]) setErrors({ ...errors, [name]: '' });

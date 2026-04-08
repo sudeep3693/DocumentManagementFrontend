@@ -174,8 +174,10 @@ const DocumentWriterModal = ({ isOpen, onClose, onSuccess, initialData = null })
   if (!isOpen) return null;
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    if (name === 'age' && !isValidEnglishInteger(value)) return;
+    let { name, value } = e.target;
+    if (name === 'age') {
+      value = englishToNepali(value);
+    }
     if (name === 'fullNameNepali' && value && !isNepaliAlphaOnly(value)) return;
     
     setForm(prev => {
@@ -213,7 +215,7 @@ const DocumentWriterModal = ({ isOpen, onClose, onSuccess, initialData = null })
     // Convert necessary data to expected formats
     const payload = {
       fullNameNepali: form.fullNameNepali,
-      age: form.age ? englishToNepali(String(form.age)) : '०',
+      age: form.age || '०',
       gender: form.gender ? Number(form.gender) : 0,
       province: form.province ? Number(form.province) : 0,
       district: form.district ? Number(form.district) : 0,

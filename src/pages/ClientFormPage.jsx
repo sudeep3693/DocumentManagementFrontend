@@ -352,13 +352,21 @@ const ClientFormPage = () => {
   const handleChange = (e) => {
     let { name, value } = e.target;
 
-    if (name === 'citizenshipNumber') {
+    const nepaliDigitFields = [
+      'membershipId',
+      'shareAmountNumber',
+      'shareCertificateNumber',
+      'citizenshipNumber',
+      'dateOfBirthNumber',
+      'mobileNumber'
+    ];
+
+    if (nepaliDigitFields.includes(name)) {
       if (value && !isValidNumberWithSymbols(value)) return;
       value = convertToNepaliDigits(value);
     }
 
     if (name === 'emailId' && !hasNoNepali(value)) return;
-    if (name === 'mobileNumber' && !isEnglishNumber(value)) return;
 
     setForm(prev => {
       const updated = { ...prev, [name]: value };

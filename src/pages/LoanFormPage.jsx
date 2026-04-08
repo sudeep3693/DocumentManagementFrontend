@@ -5,7 +5,7 @@ import { searchClientsApi, getCodeValuesApi, addLoanApi, getClientByIdApi, getLo
 import NepaliDatePickerWrapper, { getTodayBs, formatBs, formatAd, toNepaliDigits } from '../components/NepaliDatePickerWrapper';
 import DocumentWriterSearchSelect from '../components/DocumentWriterSearchSelect';
 import './ClientLayout.css';
-import { isNepaliAlphaOnly } from '../utils/validation';
+import { isNepaliAlphaOnly, convertToNepaliDigits } from '../utils/validation';
 import FormSkeleton from '../components/skeletons/FormSkeleton';
 import cache from '../utils/cache';
 
@@ -457,11 +457,12 @@ const LoanFormPage = () => {
   }, [form.sakshiList]);
 
   const handleMainChange = (e, validationType) => {
-    const { name, value } = e.target;
+    let { name, value } = e.target;
 
-    if (validationType === 'currency' && !isValidEnglishCurrency(value)) return;
-    if (validationType === 'decimal' && !isValidEnglishDecimal(value)) return;
-    if (validationType === 'integer' && !isValidEnglishInteger(value)) return;
+    const nepaliDigitFields = ['loanAmount', 'interestRate', 'loanRemainingToBePaid'];
+    if (nepaliDigitFields.includes(name)) {
+      value = convertToNepaliDigits(value);
+    }
 
     // Specific validation for interestRate: Max 16
     if (name === 'interestRate' && value) {
@@ -473,9 +474,12 @@ const LoanFormPage = () => {
   };
 
   const handleDhanjamaniChange = (index, field, value) => {
-    if (field === 'amount' && !isValidEnglishCurrency(value)) return;
+    let finalValue = value;
+    if (field === 'amount') {
+      finalValue = convertToNepaliDigits(value);
+    }
     const newList = [...form.dhanjamaniList];
-    newList[index][field] = value;
+    newList[index][field] = finalValue;
     setForm(p => ({ ...p, dhanjamaniList: newList }));
   };
 
@@ -515,10 +519,13 @@ const LoanFormPage = () => {
   };
 
   const handleSakshiChange = (index, field, value) => {
-    if (field === 'age' && !isValidEnglishInteger(value)) return;
+    let finalValue = value;
+    if (field === 'age') {
+      finalValue = convertToNepaliDigits(value);
+    }
 
     const newList = [...form.sakshiList];
-    newList[index][field] = value;
+    newList[index][field] = finalValue;
     if (field === 'province') {
       newList[index].district = '';
       newList[index].localGovernment = '';

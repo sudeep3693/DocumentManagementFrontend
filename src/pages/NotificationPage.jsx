@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useToast } from '../context/ToastContext';
 import { sendSmsApi, sendBulkSmsApi, sendBulkEmailApi, getNotificationAvailabilityApi, getUserProfileApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { isEnglishNumber } from '../utils/validation';
 
 /* ───────── helpers ───────── */
 const fmt = (n) => n.toLocaleString('en-IN');
@@ -79,7 +80,17 @@ const ClientRows = ({ clients, onChange, type = 'sms' }) => {
       {clients.map((c, i) => (
         <div className="notif-client-row" key={i}>
           <input type="number" placeholder="Client ID" value={c.clientId} onChange={(e) => update(i, 'clientId', e.target.value)} className="form-input" />
-          <input type="text" placeholder={type === 'email' ? 'Email' : 'Phone Number'} value={type === 'email' ? c.email : c.phoneNumber} onChange={(e) => update(i, type === 'email' ? 'email' : 'phoneNumber', e.target.value)} className="form-input" />
+          <input 
+            type="text" 
+            placeholder={type === 'email' ? 'Email' : 'Phone Number'} 
+            value={type === 'email' ? c.email : c.phoneNumber} 
+            onChange={(e) => {
+              const v = e.target.value;
+              if (type === 'sms' && !isEnglishNumber(v)) return;
+              update(i, type === 'email' ? 'email' : 'phoneNumber', v);
+            }} 
+            className="form-input" 
+          />
           <input type="text" placeholder="Client Name" value={c.clientName} onChange={(e) => update(i, 'clientName', e.target.value)} className="form-input" />
           <button type="button" className="btn-icon-remove" onClick={() => remove(i)} title="Remove">✕</button>
         </div>
@@ -459,7 +470,15 @@ const NotificationPage = () => {
                   <div className="form-grid">
                     <div className="form-group">
                       <label>Phone Number *</label>
-                      <input type="text" placeholder="e.g. 9846008536" value={singleSms.toPhone} onChange={(e) => setSingleSms({ ...singleSms, toPhone: e.target.value })} />
+                      <input 
+                        type="text" 
+                        placeholder="e.g. 9846008536" 
+                        value={singleSms.toPhone} 
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (isEnglishNumber(v)) setSingleSms({ ...singleSms, toPhone: v });
+                        }} 
+                      />
                     </div>
                     <div className="form-group">
                       <label>Client ID</label>
@@ -527,7 +546,18 @@ const NotificationPage = () => {
                   </div>
                   <div className="form-group">
                     <label>Contact Numbers *</label>
-                    <textarea rows={4} placeholder={"Enter numbers separated by commas or new lines\ne.g. 9801234567, 9807654321"} value={contactSms.contactNumbers} onChange={(e) => setContactSms({ ...contactSms, contactNumbers: e.target.value })} />
+                    <textarea 
+                      rows={4} 
+                      placeholder={"Enter numbers separated by commas or new lines\ne.g. 9801234567, 9807654321"} 
+                      value={contactSms.contactNumbers} 
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        // Allow 0-9, comma, newline, space
+                        if (/^[0-9,\s\n]*$/.test(v)) {
+                          setContactSms({ ...contactSms, contactNumbers: v });
+                        }
+                      }} 
+                    />
                     <span className="form-hint">Separate with commas or new lines</span>
                   </div>
                   <VariableRows variables={contactSmsVars} onChange={setContactSmsVars} />

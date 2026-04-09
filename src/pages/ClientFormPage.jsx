@@ -358,12 +358,16 @@ const ClientFormPage = () => {
       'shareCertificateNumber',
       'citizenshipNumber',
       'dateOfBirthNumber',
-      'mobileNumber'
     ];
 
     if (nepaliDigitFields.includes(name)) {
       if (value && !isValidNumberWithSymbols(value)) return;
       value = convertToNepaliDigits(value);
+    }
+
+    if (name === 'mobileNumber') {
+      if (!isEnglishNumber(value)) return;
+      // No conversion to Nepali digits for mobile number
     }
 
     if (name === 'emailId' && !hasNoNepali(value)) return;

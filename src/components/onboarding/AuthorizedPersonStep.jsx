@@ -6,7 +6,8 @@ import {
   isNepaliAlphaOnly, 
   isValidNumberWithSymbols,
   convertToNepaliDigits,
-  hasNoNepali
+  hasNoNepali,
+  isEnglishNumber
 } from '../../utils/validation';
 
 const CODE_DISTRICT = 1002;
@@ -101,7 +102,8 @@ const AuthorizedPersonStep = ({ prefill, formData, onNext, onBack }) => {
     if (name === 'fullName' && !isValidEnglishName(value)) return;
     if (name === 'fullNameNepali' && !isNepaliAlphaOnly(value)) return;
     if (name === 'contactNo') {
-      value = convertToNepaliDigits(value);
+      if (!isEnglishNumber(value)) return;
+      // Removed convertToNepaliDigits as per requirement for Arabic numerals only
     }
     if (name === 'emailAddress' && !hasNoNepali(value)) return;
     if (name === 'citizenshipNo') {

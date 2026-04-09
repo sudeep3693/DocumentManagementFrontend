@@ -19,9 +19,10 @@ export const isNepaliAlphaOnly = (val) => /^[\u0900-\u0963\u0970-\u097F\s(),\-]*
 export const isValidEmailChar = (val) => /^[a-zA-Z0-9.@_\-\+]*$/.test(val);
 
 /**
- * Only English numbers.
+ * Only Arabic (English) numbers.
  */
 export const isEnglishNumber = (val) => /^[0-9]*$/.test(val);
+export const isArabicNumber = isEnglishNumber;
 
 /**
  * Only Nepali numbers and special characters: - / , .

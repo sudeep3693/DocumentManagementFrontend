@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
 import { initiateOnboardingApi, validateOnboardingOtpApi } from '../services/api';
+import { isEnglishNumber } from '../utils/validation';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 const Register = () => {
@@ -168,7 +169,13 @@ const Register = () => {
                 id="contactNumber"
                 type="text"
                 value={contactNumber}
-                onChange={(e) => { setContactNumber(e.target.value); setError(''); }}
+                onChange={(e) => { 
+                  const val = e.target.value;
+                  if (isEnglishNumber(val)) {
+                    setContactNumber(val); 
+                    setError('');
+                  }
+                }}
                 placeholder="e.g. 9841234567"
                 maxLength={10}
               />

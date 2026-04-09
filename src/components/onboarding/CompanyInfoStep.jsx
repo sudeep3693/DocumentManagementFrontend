@@ -5,7 +5,8 @@ import {
   isNepaliAlphaOnly, 
   isValidEmailChar, 
   hasNoNepali,
-  convertToNepaliDigits 
+  convertToNepaliDigits,
+  isEnglishNumber 
 } from '../../utils/validation';
 
 const CODE_COOPERATIVE_TYPE = 57;
@@ -110,7 +111,8 @@ const CompanyInfoStep = ({ data, prefill, formData, onNext, isEditMode }) => {
     if (name === 'cooperativeRegisteredOffice' && !isNepaliAlphaOnly(value)) return;
     if (name === 'email' && (!isValidEmailChar(value) || !hasNoNepali(value))) return;
     if (name === 'contactNumber') {
-      value = convertToNepaliDigits(value);
+      if (!isEnglishNumber(value)) return;
+      // Removed convertToNepaliDigits as per requirement for Arabic numerals only
     }
 
     setForm({ ...form, [name]: value });

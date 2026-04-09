@@ -79,18 +79,38 @@ const processQueue = (error, token = null) => {
   failedQueue = [];
 };
 
+const forceLogout = () => {
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('user');
+  window.dispatchEvent(new CustomEvent('auth-force-logout'));
+};
+
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
     // Skip refresh for auth endpoints themselves
-    if (
-      error.response?.status === 401 &&
-      !originalRequest._retry &&
-      !originalRequest.url?.includes('/auth/login') &&
-      !originalRequest.url?.includes('/auth/refresh')
-    ) {
+    if (error.response?.status === 401) {
+      const data = error.response.data || {};
+      const isSessionExpired = 
+        data.developerMessage === 'Refresh token has expired' || 
+        data.message === 'Session Expired, Please login again';
+
+      if (isSessionExpired) {
+        forceLogout();
+        if (data.message || data.developerMessage) {
+          error.message = data.message || data.developerMessage;
+        }
+        return Promise.reject(error);
+      }
+      
+      if (
+        !originalRequest._retry &&
+        !originalRequest.url?.includes('/auth/login') &&
+        !originalRequest.url?.includes('/auth/refresh')
+      ) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -155,16 +175,22 @@ axiosInstance.interceptors.response.use(
         return axiosInstance(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
-        // Clear tokens and force logout
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('user');
-        window.dispatchEvent(new CustomEvent('auth-force-logout'));
+        forceLogout();
+        
+        // Map backend message to the refresh error
+        if (refreshError.response?.data) {
+          const data = refreshError.response.data;
+          if (data.message || data.developerMessage) {
+            refreshError.message = data.message || data.developerMessage;
+          }
+        }
+        
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
       }
     }
+  }
 
     if (error.response && error.response.data) {
       const data = error.response.data;

@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Breadcrumbs from '../components/Breadcrumbs';
+import NotificationBell from '../components/NotificationBell';
 
 const MainLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -21,10 +22,9 @@ const MainLayout = () => {
     if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
     leaveTimerRef.current = setTimeout(() => {
       setSidebarOpen(false);
-    }, 300); // 300ms grace period for "smooth" feel
+    }, 300);
   }, []);
 
-  // Hover trigger strip (invisible 12px strip on the far left when collapsed)
   const handleTriggerEnter = useCallback(() => {
     if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
     setSidebarOpen(true);
@@ -32,7 +32,6 @@ const MainLayout = () => {
 
   return (
     <div className="main-layout">
-      {/* Invisible hover trigger on far left for re-opening */}
       {!sidebarOpen && (
         <div
           className="sidebar-hover-trigger"
@@ -48,10 +47,22 @@ const MainLayout = () => {
         onMouseLeave={handleMouseLeave}
       />
 
-      <main className={`main-content ${sidebarOpen ? 'content-expanded' : 'content-collapsed'}`}>
-        <Breadcrumbs />
-        <Outlet />
-      </main>
+      <div className={`main-content ${sidebarOpen ? 'content-expanded' : 'content-collapsed'}`}>
+        {/* Top Bar */}
+        <div className="topbar">
+          <div className="topbar-left">
+            <Breadcrumbs />
+          </div>
+          <div className="topbar-right">
+            <NotificationBell />
+          </div>
+        </div>
+
+        {/* Page content */}
+        <div className="page-wrapper">
+          <Outlet />
+        </div>
+      </div>
     </div>
   );
 };

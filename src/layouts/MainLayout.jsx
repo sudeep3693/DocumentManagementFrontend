@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Breadcrumbs from '../components/Breadcrumbs';
 import NotificationBell from '../components/NotificationBell';
+import UserMenu from '../components/UserMenu';
 
 const MainLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -55,6 +56,7 @@ const MainLayout = () => {
           </div>
           <div className="topbar-right">
             <NotificationBell />
+            <UserMenu />
           </div>
         </div>
 

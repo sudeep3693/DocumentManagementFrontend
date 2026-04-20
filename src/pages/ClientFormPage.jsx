@@ -368,8 +368,6 @@ const ClientFormPage = () => {
 
     const nepaliDigitFields = [
       'membershipId',
-      'shareAmountNumber',
-      'shareCertificateNumber',
       'citizenshipNumber',
       'dateOfBirthNumber',
     ];

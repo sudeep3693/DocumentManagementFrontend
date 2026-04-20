@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getCodeValuesApi } from '../../services/api';
-import { isNepaliAlphaOnly, isValidNumberWithSymbols, convertToNepaliDigits } from '../../utils/validation';
+import { isValidNumberWithSymbols, convertToNepaliDigits } from '../../utils/validation';
+import NepaliInput from '../NepaliInput';
 
 const CODE_PROVINCE = 1001;
 const CODE_DISTRICT = 1002;
@@ -125,7 +126,6 @@ const AddressInfoStep = ({ prefill, formData, data, onNext, onBack }) => {
     let { name, value } = e.target;
 
     // Real-time filtering
-    if (name === 'tole' && !isNepaliAlphaOnly(value)) return;
     if (name === 'houseNo') {
       if (value && !isValidNumberWithSymbols(value)) return;
       value = convertToNepaliDigits(value);
@@ -233,7 +233,7 @@ const AddressInfoStep = ({ prefill, formData, data, onNext, onBack }) => {
 
           <div className="form-group">
             <label>Tole Name *</label>
-            <input name="tole" value={address.tole} onChange={handleChange} placeholder="e.g. Milan Chowk" />
+            <NepaliInput name="tole" value={address.tole} onChange={handleChange} placeholder="e.g. Milan Chowk" />
             {errors.tole && <span className="form-error">{errors.tole}</span>}
           </div>
 

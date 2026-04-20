@@ -2,12 +2,11 @@ import { useState, useEffect } from 'react';
 import { getCodeValuesApi } from '../../services/api';
 import { 
   isValidEnglishName, 
-  isNepaliAlphaOnly, 
   isValidEmailChar, 
   hasNoNepali,
-  convertToNepaliDigits,
   isEnglishNumber 
 } from '../../utils/validation';
+import NepaliInput from '../NepaliInput';
 
 const CODE_COOPERATIVE_TYPE = 57;
 
@@ -107,8 +106,6 @@ const CompanyInfoStep = ({ data, prefill, formData, onNext, isEditMode }) => {
     
     // Real-time filtering based on requirements
     if (name === 'nameEnglish' && !isValidEnglishName(value)) return;
-    if (name === 'nameNepali' && !isNepaliAlphaOnly(value)) return;
-    if (name === 'cooperativeRegisteredOffice' && !isNepaliAlphaOnly(value)) return;
     if (name === 'email' && (!isValidEmailChar(value) || !hasNoNepali(value))) return;
     if (name === 'contactNumber') {
       if (!isEnglishNumber(value)) return;
@@ -130,7 +127,7 @@ const CompanyInfoStep = ({ data, prefill, formData, onNext, isEditMode }) => {
         </div>
         <div className="form-group">
           <label htmlFor="nameNepali">Name (Nepali) {isEditMode ? '' : '*'}</label>
-          <input id="nameNepali" name="nameNepali" value={form.nameNepali} onChange={handleChange} placeholder="e.g. सहस सहकारी" disabled={isEditMode} />
+          <NepaliInput id="nameNepali" name="nameNepali" value={form.nameNepali} onChange={handleChange} placeholder="e.g. सहस सहकारी" disabled={isEditMode} />
           {errors.nameNepali && <span className="form-error">{errors.nameNepali}</span>}
         </div>
         <div className="form-group">
@@ -145,7 +142,7 @@ const CompanyInfoStep = ({ data, prefill, formData, onNext, isEditMode }) => {
         </div>
         <div className="form-group">
           <label htmlFor="cooperativeRegisteredOffice">Registered Office *</label>
-          <input id="cooperativeRegisteredOffice" name="cooperativeRegisteredOffice" value={form.cooperativeRegisteredOffice} onChange={handleChange} placeholder="e.g. Pokhara Metropolitan City-19" />
+          <NepaliInput id="cooperativeRegisteredOffice" name="cooperativeRegisteredOffice" value={form.cooperativeRegisteredOffice} onChange={handleChange} placeholder="e.g. Pokhara Metropolitan City-19" />
           {errors.cooperativeRegisteredOffice && <span className="form-error">{errors.cooperativeRegisteredOffice}</span>}
         </div>
         <div className="form-group">

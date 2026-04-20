@@ -4,9 +4,11 @@ import { useToast } from '../context/ToastContext';
 import { addClientApi, updateClientApi, getClientByIdApi, getCodeValuesApi } from '../services/api';
 import './ClientLayout.css';
 import NepaliDatePickerWrapper from '../components/NepaliDatePickerWrapper';
-import { isNepaliAlphaOnly, isValidNumberWithSymbols, convertToNepaliDigits, hasNoNepali, isEnglishNumber } from '../utils/validation';
+import { isValidNumberWithSymbols, convertToNepaliDigits, hasNoNepali, isEnglishNumber } from '../utils/validation';
+import NepaliInput from '../components/NepaliInput';
 import FormSkeleton from '../components/skeletons/FormSkeleton';
 import cache from '../utils/cache';
+import { transliterateToNepali } from '../utils/transliteration';
 
 // Nepali numeral helpers
 const NEPALI_DIGITS = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
@@ -144,6 +146,9 @@ const ClientFormPage = () => {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(isEditing);
   const [saving, setSaving] = useState(false);
+  // Tracks which English→Nepali auto-fills have already fired (create mode only).
+  // Once a field is in this set, further English edits won't overwrite Nepali.
+  const [autoFilledFields, setAutoFilledFields] = useState(new Set());
 
   const age = form.dateOfBirthBs?.adDate ? calculateAge(form.dateOfBirthBs) : null;
   const isMinor = age !== null && age < 16;
@@ -309,7 +314,8 @@ const ClientFormPage = () => {
       }
     };
     fetchData();
-  }, [id, isEditing, navigate, toast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, isEditing]);
 
   // Handle cascaded dropdowns for Permanent Address
   useEffect(() => {
@@ -349,6 +355,14 @@ const ClientFormPage = () => {
     }
   }, [form.addresses[1].district]);
 
+  // Mapping: English field name → its Nepali counterpart field name
+  const ENGLISH_TO_NEPALI_FIELD = {
+    fullNameEnglish:    'fullNameNepali',
+    fatherNameEnglish:  'fatherNameNepali',
+    spouseNameEnglish:  'spouseNameNepali',
+    ancestorNameEnglish:'ancestorNameNepali',
+  };
+
   const handleChange = (e) => {
     let { name, value } = e.target;
 
@@ -367,13 +381,27 @@ const ClientFormPage = () => {
 
     if (name === 'mobileNumber') {
       if (!isEnglishNumber(value)) return;
-      // No conversion to Nepali digits for mobile number
     }
 
     if (name === 'emailId' && !hasNoNepali(value)) return;
 
+    // If user manually edits a Nepali field, lock it so auto-fill won't overwrite it.
+    const nepaliFieldSources = Object.values(ENGLISH_TO_NEPALI_FIELD);
+    if (nepaliFieldSources.includes(name)) {
+      setAutoFilledFields(prev => new Set(prev).add(name));
+    }
+
     setForm(prev => {
       const updated = { ...prev, [name]: value };
+
+      // ── Auto-transliterate English → Nepali (create mode, while field is active) ──
+      // Locking happens on blur, not here — so every keystroke keeps updating.
+      if (!isEditing && ENGLISH_TO_NEPALI_FIELD[name]) {
+        const nepaliField = ENGLISH_TO_NEPALI_FIELD[name];
+        if (!autoFilledFields.has(nepaliField)) {
+          updated[nepaliField] = transliterateToNepali(value);
+        }
+      }
 
       // Auto-set spouseType when marital status changes
       if (name === 'maritalStatus') {
@@ -388,7 +416,6 @@ const ClientFormPage = () => {
           updated.spouseNameNepali = '';
           updated.spouseNameEnglish = '';
         }
-        // Auto-set ancestorType
         if (newMs === marriedId && curG === maleId && grandfatherId) {
           updated.ancestorType = String(grandfatherId);
         } else if (newMs === marriedId && curG === femaleId && fatherInLawId) {
@@ -405,7 +432,6 @@ const ClientFormPage = () => {
         } else if (curMs === marriedId && newG === femaleId && husbandId) {
           updated.spouseType = String(husbandId);
         }
-        // Auto-set ancestorType
         if (curMs === marriedId && newG === maleId && grandfatherId) {
           updated.ancestorType = String(grandfatherId);
         } else if (curMs === marriedId && newG === femaleId && fatherInLawId) {
@@ -417,6 +443,17 @@ const ClientFormPage = () => {
     });
 
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: null }));
+  };
+
+  /**
+   * Called when an English name field loses focus.
+   * Locks the Nepali counterpart so further English edits won't overwrite it.
+   */
+  const handleEnglishBlur = (englishFieldName) => {
+    const nepaliField = ENGLISH_TO_NEPALI_FIELD[englishFieldName];
+    if (nepaliField) {
+      setAutoFilledFields(prev => new Set(prev).add(nepaliField));
+    }
   };
 
   const handleAddressChange = (index, field, value) => {
@@ -610,14 +647,22 @@ const ClientFormPage = () => {
               {errors.membershipId && <span className="form-error">{errors.membershipId}</span>}
             </div>
             <div className="form-group">
-              <label>पूरा नाम (Full Name Nepali) *</label>
-              <input name="fullNameNepali" value={form.fullNameNepali} onChange={(e) => { if (isNepaliAlphaOnly(e.target.value)) handleChange(e); }} />
-              {errors.fullNameNepali && <span className="form-error">{errors.fullNameNepali}</span>}
+              <label>Full Name (English) *</label>
+              <input
+                name="fullNameEnglish"
+                value={form.fullNameEnglish}
+                onChange={handleChange}
+                onBlur={() => handleEnglishBlur('fullNameEnglish')}
+              />
+              {errors.fullNameEnglish && <span className="form-error">{errors.fullNameEnglish}</span>}
             </div>
             <div className="form-group">
-              <label>Full Name (English) *</label>
-              <input name="fullNameEnglish" value={form.fullNameEnglish} onChange={handleChange} />
-              {errors.fullNameEnglish && <span className="form-error">{errors.fullNameEnglish}</span>}
+              <label>
+                पूरा नाम (Full Name Nepali) *
+                {!isEditing && <span style={{ marginLeft: '0.4rem', fontSize: '0.72rem', color: '#6366f1', fontWeight: 600 }}>✦ auto</span>}
+              </label>
+              <NepaliInput name="fullNameNepali" value={form.fullNameNepali} onChange={handleChange} />
+              {errors.fullNameNepali && <span className="form-error">{errors.fullNameNepali}</span>}
             </div>
             <div className="form-group">
               <label>Gender / लिङ्ग *</label>
@@ -719,14 +764,22 @@ const ClientFormPage = () => {
           <SectionHeader icon="👨‍👩‍👧" title="Family Information (पारिवारिक विवरण)" accentColor="var(--warning-500)" />
           <div className="form-grid">
             <div className="form-group">
-              <label>बुबाको नाम (Father Name Nepali) *</label>
-              <input name="fatherNameNepali" value={form.fatherNameNepali} onChange={(e) => { if (isNepaliAlphaOnly(e.target.value)) handleChange(e); }} />
-              {errors.fatherNameNepali && <span className="form-error">{errors.fatherNameNepali}</span>}
+              <label>Father Name (English) *</label>
+              <input
+                name="fatherNameEnglish"
+                value={form.fatherNameEnglish}
+                onChange={handleChange}
+                onBlur={() => handleEnglishBlur('fatherNameEnglish')}
+              />
+              {errors.fatherNameEnglish && <span className="form-error">{errors.fatherNameEnglish}</span>}
             </div>
             <div className="form-group">
-              <label>Father Name (English) *</label>
-              <input name="fatherNameEnglish" value={form.fatherNameEnglish} onChange={handleChange} />
-              {errors.fatherNameEnglish && <span className="form-error">{errors.fatherNameEnglish}</span>}
+              <label>
+                बुबाको नाम (Father Name Nepali) *
+                {!isEditing && <span style={{ marginLeft: '0.4rem', fontSize: '0.72rem', color: '#6366f1', fontWeight: 600 }}>✦ auto</span>}
+              </label>
+              <NepaliInput name="fatherNameNepali" value={form.fatherNameNepali} onChange={handleChange} />
+              {errors.fatherNameNepali && <span className="form-error">{errors.fatherNameNepali}</span>}
             </div>
             <div className="form-group">
               <label>Spouse Type / पति/पत्नी प्रकार {isMarried && '*'}</label>
@@ -741,24 +794,28 @@ const ClientFormPage = () => {
               </select>
             </div>
             <div className="form-group">
-              <label>पति/पत्नीको नाम (Spouse Name Nepali) {isMarried && '*'}</label>
-              <input
-                name="spouseNameNepali"
-                value={form.spouseNameNepali}
-                onChange={(e) => { if (isNepaliAlphaOnly(e.target.value)) handleChange(e); }}
-                disabled={spouseDisabled}
-              />
-              {errors.spouseNameNepali && <span className="form-error">{errors.spouseNameNepali}</span>}
-            </div>
-            <div className="form-group">
               <label>Spouse Name (English) {isMarried && '*'}</label>
               <input
                 name="spouseNameEnglish"
                 value={form.spouseNameEnglish}
                 onChange={handleChange}
+                onBlur={() => handleEnglishBlur('spouseNameEnglish')}
                 disabled={spouseDisabled}
               />
               {errors.spouseNameEnglish && <span className="form-error">{errors.spouseNameEnglish}</span>}
+            </div>
+            <div className="form-group">
+              <label>
+                पति/पत्नीको नाम (Spouse Name Nepali) {isMarried && '*'}
+                {!isEditing && <span style={{ marginLeft: '0.4rem', fontSize: '0.72rem', color: '#6366f1', fontWeight: 600 }}>✦ auto</span>}
+              </label>
+              <NepaliInput
+                name="spouseNameNepali"
+                value={form.spouseNameNepali}
+                onChange={handleChange}
+                disabled={spouseDisabled}
+              />
+              {errors.spouseNameNepali && <span className="form-error">{errors.spouseNameNepali}</span>}
             </div>
             <div className="form-group"></div>
 
@@ -782,14 +839,22 @@ const ClientFormPage = () => {
               {errors.ancestorType && <span className="form-error">{errors.ancestorType}</span>}
             </div>
             <div className="form-group">
-              <label>पुर्खाको नाम (Ancestor Name Nepali) *</label>
-              <input name="ancestorNameNepali" value={form.ancestorNameNepali} onChange={(e) => { if (isNepaliAlphaOnly(e.target.value)) handleChange(e); }} />
-              {errors.ancestorNameNepali && <span className="form-error">{errors.ancestorNameNepali}</span>}
+              <label>Ancestor Name (English) *</label>
+              <input
+                name="ancestorNameEnglish"
+                value={form.ancestorNameEnglish}
+                onChange={handleChange}
+                onBlur={() => handleEnglishBlur('ancestorNameEnglish')}
+              />
+              {errors.ancestorNameEnglish && <span className="form-error">{errors.ancestorNameEnglish}</span>}
             </div>
             <div className="form-group">
-              <label>Ancestor Name (English) *</label>
-              <input name="ancestorNameEnglish" value={form.ancestorNameEnglish} onChange={handleChange} />
-              {errors.ancestorNameEnglish && <span className="form-error">{errors.ancestorNameEnglish}</span>}
+              <label>
+                पुर्खाको नाम (Ancestor Name Nepali) *
+                {!isEditing && <span style={{ marginLeft: '0.4rem', fontSize: '0.72rem', color: '#6366f1', fontWeight: 600 }}>✦ auto</span>}
+              </label>
+              <NepaliInput name="ancestorNameNepali" value={form.ancestorNameNepali} onChange={handleChange} />
+              {errors.ancestorNameNepali && <span className="form-error">{errors.ancestorNameNepali}</span>}
             </div>
           </div>
         </div>
@@ -833,7 +898,7 @@ const ClientFormPage = () => {
             </div>
             <div className="form-group">
               <label>Tole Name / टोल *</label>
-              <input value={form.addresses[0].toleName} onChange={(e) => handleAddressChange(0, 'toleName', e.target.value)} />
+              <NepaliInput value={form.addresses[0].toleName} onChange={(e) => handleAddressChange(0, 'toleName', e.target.value)} />
               {errors.address_0_toleName && <span className="form-error">{errors.address_0_toleName}</span>}
             </div>
             <div className="form-group">
@@ -842,7 +907,7 @@ const ClientFormPage = () => {
             </div>
             <div className="form-group">
               <label>Sabik Address / साविक ठेगाना</label>
-              <input value={form.addresses[0].sabikAddress || ''} onChange={(e) => handleAddressChange(0, 'sabikAddress', e.target.value)} />
+              <NepaliInput value={form.addresses[0].sabikAddress || ''} onChange={(e) => handleAddressChange(0, 'sabikAddress', e.target.value)} />
             </div>
           </div>
         </div>
@@ -889,7 +954,7 @@ const ClientFormPage = () => {
             </div>
             <div className="form-group">
               <label>Tole Name / टोल *</label>
-              <input value={form.addresses[1].toleName} onChange={(e) => handleAddressChange(1, 'toleName', e.target.value)} />
+              <NepaliInput value={form.addresses[1].toleName} onChange={(e) => handleAddressChange(1, 'toleName', e.target.value)} />
               {errors.address_1_toleName && <span className="form-error">{errors.address_1_toleName}</span>}
             </div>
             <div className="form-group">
@@ -898,7 +963,7 @@ const ClientFormPage = () => {
             </div>
             <div className="form-group">
               <label>Sabik Address / साविक ठेगाना</label>
-              <input value={form.addresses[1].sabikAddress || ''} onChange={(e) => handleAddressChange(1, 'sabikAddress', e.target.value)} />
+              <NepaliInput value={form.addresses[1].sabikAddress || ''} onChange={(e) => handleAddressChange(1, 'sabikAddress', e.target.value)} />
             </div>
           </div>
         </div>

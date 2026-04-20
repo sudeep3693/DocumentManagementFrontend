@@ -6,6 +6,7 @@ import NepaliDatePickerWrapper, { getTodayBs, formatBs, formatAd, toNepaliDigits
 import DocumentWriterSearchSelect from '../components/DocumentWriterSearchSelect';
 import './ClientLayout.css';
 import { isNepaliAlphaOnly, convertToNepaliDigits } from '../utils/validation';
+import NepaliInput from '../components/NepaliInput';
 import FormSkeleton from '../components/skeletons/FormSkeleton';
 import cache from '../utils/cache';
 
@@ -431,7 +432,8 @@ const LoanFormPage = () => {
       }
     };
     fetchCodesAndData();
-  }, [id, isEditing, toast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, isEditing]);
 
   const fetchDistricts = async (provinceId) => {
     if (!provinceId || districtsObj[provinceId]) return;
@@ -465,8 +467,9 @@ const LoanFormPage = () => {
     }
 
     // Specific validation for interestRate: Max 16
+    // Convert Nepali digits to English before numeric comparison
     if (name === 'interestRate' && value) {
-      if (parseFloat(value) > 16) return;
+      if (parseFloat(nepaliToEnglish(value)) > 16) return;
     }
 
     setForm(p => ({ ...p, [name]: value }));
@@ -606,7 +609,7 @@ const LoanFormPage = () => {
     if (!form.loanRepaymentType) newErrs.loanRepaymentType = 'Required';
     if (!form.interestRate) {
       newErrs.interestRate = 'Required';
-    } else if (parseFloat(form.interestRate) > 16) {
+    } else if (parseFloat(nepaliToEnglish(String(form.interestRate))) > 16) {
       newErrs.interestRate = 'Maximum interest rate is 16%';
     }
     if (!form.loanAmount) newErrs.loanAmount = 'Required';
@@ -924,12 +927,10 @@ const LoanFormPage = () => {
                 <div className="form-grid">
                   <div className="form-group">
                     <label>Full Name (नेपाली नाम) *</label>
-                    <input 
+                    <NepaliInput 
                       value={sk.fullNameNepali} 
                       onChange={(e) => {
-                        const val = e.target.value;
-                        if (val && !isNepaliAlphaOnly(val)) return;
-                        handleSakshiChange(index, 'fullNameNepali', val);
+                        handleSakshiChange(index, 'fullNameNepali', e.target.value);
                       }} 
                     />
                     {errors[`sk_${index}_fullName`] && <span className="form-error">{errors[`sk_${index}_fullName`]}</span>}

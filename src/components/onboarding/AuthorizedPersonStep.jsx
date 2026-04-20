@@ -3,12 +3,12 @@ import { getCodeValuesApi } from '../../services/api';
 import NepaliDatePickerWrapper from '../NepaliDatePickerWrapper';
 import { 
   isValidEnglishName, 
-  isNepaliAlphaOnly, 
   isValidNumberWithSymbols,
   convertToNepaliDigits,
   hasNoNepali,
   isEnglishNumber
 } from '../../utils/validation';
+import NepaliInput from '../NepaliInput';
 
 const CODE_DISTRICT = 1002;
 
@@ -100,7 +100,6 @@ const AuthorizedPersonStep = ({ prefill, formData, onNext, onBack }) => {
 
     // Real-time filtering
     if (name === 'fullName' && !isValidEnglishName(value)) return;
-    if (name === 'fullNameNepali' && !isNepaliAlphaOnly(value)) return;
     if (name === 'contactNo') {
       if (!isEnglishNumber(value)) return;
       // Removed convertToNepaliDigits as per requirement for Arabic numerals only
@@ -130,7 +129,7 @@ const AuthorizedPersonStep = ({ prefill, formData, onNext, onBack }) => {
           </div>
           <div className="form-group">
             <label htmlFor="fullNameNepali">Full Name (Nepali) *</label>
-            <input id="fullNameNepali" name="fullNameNepali" value={form.fullNameNepali} onChange={handleChange} placeholder="e.g. राम बहादुर थापा" />
+            <NepaliInput id="fullNameNepali" name="fullNameNepali" value={form.fullNameNepali} onChange={handleChange} placeholder="e.g. राम बहादुर थापा" />
             {errors.fullNameNepali && <span className="form-error">{errors.fullNameNepali}</span>}
           </div>
           <div className="form-group">

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useToast } from '../context/ToastContext';
 import { createDocumentWriterApi, updateDocumentWriterApi, getCodeValuesApi } from '../services/api';
 import { isNepaliAlphaOnly } from '../utils/validation';
+import NepaliInput from './NepaliInput';
 
 const CODE_IDS = {
   PROVINCE: 1001,
@@ -178,7 +179,6 @@ const DocumentWriterModal = ({ isOpen, onClose, onSuccess, initialData = null })
     if (name === 'age') {
       value = englishToNepali(value);
     }
-    if (name === 'fullNameNepali' && value && !isNepaliAlphaOnly(value)) return;
     
     setForm(prev => {
       const updated = { ...prev, [name]: value };
@@ -255,7 +255,7 @@ const DocumentWriterModal = ({ isOpen, onClose, onSuccess, initialData = null })
             <div className="form-grid">
               <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                 <label>Full Name (नेपाली नाम) *</label>
-                <input name="fullNameNepali" value={form.fullNameNepali} onChange={handleChange} className="form-control" />
+                <NepaliInput name="fullNameNepali" value={form.fullNameNepali} onChange={handleChange} className="form-control" />
                 {errors.fullNameNepali && <span className="form-error">{errors.fullNameNepali}</span>}
               </div>
               <div className="form-group">
@@ -305,7 +305,7 @@ const DocumentWriterModal = ({ isOpen, onClose, onSuccess, initialData = null })
               </div>
               <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                 <label>Address (ठेगाना)</label>
-                <input name="address" value={form.address} onChange={handleChange} className="form-control" />
+                <NepaliInput name="address" value={form.address} onChange={handleChange} className="form-control" />
               </div>
             </div>
           </div>

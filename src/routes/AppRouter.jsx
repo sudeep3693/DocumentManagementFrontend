@@ -27,6 +27,9 @@ import NotificationPage from '../pages/NotificationPage';
 import AdminNoticeManagement from '../pages/AdminNoticeManagement';
 import AdminNoticeForm from '../pages/AdminNoticeForm';
 import UserNoticeDetail from '../pages/UserNoticeDetail';
+import TaketaPage from '../pages/TaketaPage';
+import ClientHistoryPage from '../pages/ClientHistoryPage';
+import LoanHistoryPage from '../pages/LoanHistoryPage';
 
 const AuthRedirect = ({ children }) => {
   const { isAuthenticated, role, status } = useAuth();
@@ -71,6 +74,9 @@ const AppRouter = () => {
           <Route path="/document-writers" element={<DocumentWriterManagement />} />
           <Route path="/notifications" element={<NotificationPage />} />
           <Route path="/notices/:id" element={<UserNoticeDetail />} />
+          <Route path="/taketa" element={<TaketaPage />} />
+          <Route path="/client-history" element={<ClientHistoryPage />} />
+          <Route path="/loan-history" element={<LoanHistoryPage />} />
           <Route path="/profile" element={<Profile />} />
         </Route>
 

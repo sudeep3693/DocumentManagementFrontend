@@ -322,6 +322,25 @@ export const sendBulkEmailApi = async (data) => {
   return response.data;
 };
 
+// ==================== IN-APP NOTIFICATION SERVICES (Real Backend) ====================
+
+export const getNotificationUserApi = async (params) => {
+  const response = await axiosInstance.get('/api/v1/notification/user', { params });
+  return response.data;
+};
+
+export const getNotificationAdminApi = async (params) => {
+  const response = await axiosInstance.get('/api/v1/notification/admin', { params });
+  return response.data;
+};
+
+export const markNotificationReadApi = async (id, recipientType) => {
+  const response = await axiosInstance.put(`/api/v1/notification/${id}/read`, null, {
+    params: { recipientType },
+  });
+  return response.data;
+};
+
 // ==================== NOTICE SERVICES (Admin) ====================
 
 export const getNoticesApi = async (params) => {

@@ -1,17 +1,8 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-const COLLAPSE_DELAY_MS = 3000; // 3 seconds idle before auto-close
-
 const Sidebar = ({ isOpen, onToggle, onMouseEnter, onMouseLeave }) => {
-  const { role, logout, user } = useAuth();
-  const navigate = useNavigate();
-
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
-  };
+  const { role, user } = useAuth();
 
   const adminLinks = [
     { to: '/admin/dashboard', label: 'Dashboard', icon: '📊' },
@@ -24,9 +15,11 @@ const Sidebar = ({ isOpen, onToggle, onMouseEnter, onMouseLeave }) => {
     { to: '/dashboard', label: 'Dashboard', icon: '📊' },
     { to: '/clients', label: 'Clients (ग्राहक)', icon: '🏢' },
     { to: '/loans', label: 'Loans (कर्जा)', icon: '💰' },
+    { to: '/taketa', label: 'Taketa (तमसुक)', icon: '📄' },
+    { to: '/client-history', label: 'Client History', icon: '🗂️' },
+    { to: '/loan-history', label: 'Loan History', icon: '📜' },
     { to: '/document-writers', label: 'Document Writers', icon: '✍️' },
     { to: '/notifications', label: 'Notifications', icon: '🔔' },
-    { to: '/profile', label: 'Profile', icon: '👤' },
   ];
 
   const links = role === 'admin' ? adminLinks : userLinks;
@@ -67,16 +60,7 @@ const Sidebar = ({ isOpen, onToggle, onMouseEnter, onMouseLeave }) => {
         ))}
       </nav>
 
-      <div className="sidebar-footer">
-        <button
-          className="sidebar-link logout-btn"
-          onClick={handleLogout}
-          title={!isOpen ? 'Logout' : undefined}
-        >
-          <span className="sidebar-icon">🚪</span>
-          <span className="sidebar-link-label">Logout</span>
-        </button>
-      </div>
+
     </aside>
   );
 };

@@ -177,6 +177,11 @@ export const enableClientApi = async (clientId) => {
   return response.data;
 };
 
+export const getClientHistoryApi = async (clientId) => {
+  const response = await axiosInstance.get(`/api/v1/clients/${clientId}/history`);
+  return response.data;
+};
+
 export const downloadBulkImportTemplateApi = async () => {
   const response = await axiosInstance.get('/api/v1/clients/bulk/download-template', {
     responseType: 'blob',
@@ -390,6 +395,40 @@ export const getPublicNoticesApi = async (params) => {
 
 export const getPublicNoticeByIdApi = async (noticeId) => {
   const response = await axiosInstance.get(`/api/v1/notices/${noticeId}`);
+  return response.data;
+};
+
+// ==================== ANUSUCHI RELATED SERVICES (Real Backend) ====================
+
+export const getAnusuchiRelatedApi = async (type) => {
+  const response = await axiosInstance.get('/api/v1/anusuchi-related', { params: { type } });
+  return response.data;
+};
+
+export const createAnusuchiRelatedApi = async (data) => {
+  const response = await axiosInstance.post('/api/v1/anusuchi-related', data);
+  return response.data;
+};
+
+export const updateAnusuchiRelatedApi = async (id, data) => {
+  const response = await axiosInstance.put(`/api/v1/anusuchi-related/${id}`, data);
+  return response.data;
+};
+
+// ==================== TAKETA PATRA SERVICES (Real Backend) ====================
+
+export const getTaketaPatraApi = async (type) => {
+  const response = await axiosInstance.get('/api/v1/taketa-patra', { params: { type } });
+  return response.data;
+};
+
+export const createTaketaPatraApi = async (data) => {
+  const response = await axiosInstance.post('/api/v1/taketa-patra', data);
+  return response.data;
+};
+
+export const updateTaketaPatraApi = async (id, data) => {
+  const response = await axiosInstance.put(`/api/v1/taketa-patra/${id}`, data);
   return response.data;
 };
 

@@ -88,9 +88,9 @@ const ClientDetail = ({ history, loadingHistory }) => {
         {history.loans?.content?.length > 0 && (
           <Section icon="💰" title="Loans Taken" color="var(--warning-500)">
             {history.loans.content.map((loan, idx) => (
-              <div key={loan.loanId || idx} style={{ border: '1px solid var(--gray-200)', borderRadius: '8px', padding: '1rem', marginBottom: '1rem' }}>
+              <div key={loan.effectiveLoanId || idx} style={{ border: '1px solid var(--gray-200)', borderRadius: '8px', padding: '1rem', marginBottom: '1rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                  <strong>Loan ID: {loan.loanId}</strong>
+                  <strong>Loan ID: {loan.effectiveLoanId}</strong>
                   <span className={`badge ${loan.isCompleted ? 'badge-success' : 'badge-warning'}`}>
                     {loan.isCompleted ? 'Completed' : 'Active'}
                   </span>
@@ -120,7 +120,7 @@ const ClientDetail = ({ history, loadingHistory }) => {
             {history.dhanjamaniAsGuarantor.content.map((g, idx) => (
               <div key={idx} style={{ border: '1px solid var(--gray-200)', borderRadius: '8px', padding: '1rem', marginBottom: '1rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                  <strong>Guaranteed Loan ID: {g.loanId}</strong>
+                  <strong>Guaranteed Loan ID: {g.effectiveLoanId}</strong>
                   <span className={`badge ${g.isLoanCompleted ? 'badge-success' : 'badge-warning'}`}>
                     {g.isLoanCompleted ? 'Loan Completed' : 'Loan Active'}
                   </span>

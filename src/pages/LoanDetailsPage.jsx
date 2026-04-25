@@ -211,7 +211,7 @@ const LoanDetailsPage = () => {
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
                 <h1 style={{ fontSize: '1.35rem', fontWeight: 700, color: 'var(--gray-900)', margin: 0 }}>
-                  Loan #{loan.id}
+                  Loan #{loan.effectiveLoanId || loan.id}
                 </h1>
                 {loan.isTamsukGenerated ? (
                   <span className="badge badge-success" style={{ fontSize: '0.7rem' }}>● Tamsuk Generated</span>

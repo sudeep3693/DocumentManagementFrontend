@@ -192,7 +192,7 @@ const LoanManagement = () => {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Loan ID</th>
+                <th>Effective Loan ID</th>
                 <th>Membership ID</th>
                 <th>Client Name</th>
                 <th>Contact</th>
@@ -210,7 +210,7 @@ const LoanManagement = () => {
               ) : (
                 loans.map((loan) => (
                   <tr key={loan.id}>
-                    <td>{loan.id}</td>
+                    <td>{loan.effectiveLoanId}</td>
                     <td>{loan.membershipId}</td>
                     <td>{loan.clientNameNepali}</td>
                     <td>{loan.contactNumber}</td>

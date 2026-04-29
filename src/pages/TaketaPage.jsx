@@ -29,13 +29,13 @@ const EMPTY_TAKETA = {
   remainingLoanAmount: '',
   interestAmount: '',
   loanAmount: '',
-  fineAmount: '',
+  fineAmount: '',   // only used for taketaPatra2/3/4
   totalAmount: '',
   reason: '',
-  taketa1Id: '',
-  taketa2Id: '',
-  taketa3Id: '',
 };
+
+/** taketaPatra1 does NOT send fineAmount per the API contract */
+const HAS_FINE_AMOUNT = (taketaType) => taketaType !== 'taketaPatra1';
 
 const PAGE_SIZE = 5;
 
@@ -164,6 +164,7 @@ const RecordsTable = ({ records }) => {
 
 // ─── Taketa Tab Content ────────────────────────────────────────
 const TaketaTabContent = ({ taketaType }) => {
+  const hasFineAmount = HAS_FINE_AMOUNT(taketaType);
   const toast = useToast();
 
   // Anusuchi state
@@ -227,9 +228,6 @@ const TaketaTabContent = ({ taketaType }) => {
           fineAmount: latest.fineAmount ?? '',
           totalAmount: latest.totalAmount ?? '',
           reason: latest.reason ?? '',
-          taketa1Id: latest.taketa1Id ?? '',
-          taketa2Id: latest.taketa2Id ?? '',
-          taketa3Id: latest.taketa3Id ?? '',
         });
       } else {
         setTaketaId(null);
@@ -299,19 +297,17 @@ const TaketaTabContent = ({ taketaType }) => {
     setTaketaSaving(true);
     try {
       const payload = {
-        loanId: taketaForm.loanId ? Number(taketaForm.loanId) : 0,
+        loanId: taketaForm.loanId,
         anusuchiRelatedDocumentId: anusuchiId,
         type: taketaType,
         kittaNumber: taketaForm.kittaNumber,
         remainingLoanAmount: taketaForm.remainingLoanAmount,
         interestAmount: taketaForm.interestAmount,
         loanAmount: taketaForm.loanAmount,
-        fineAmount: taketaForm.fineAmount,
+        // fineAmount is excluded for taketaPatra1 per API contract
+        ...(hasFineAmount ? { fineAmount: taketaForm.fineAmount } : {}),
         totalAmount: taketaForm.totalAmount,
         reason: taketaForm.reason,
-        taketa1Id: taketaForm.taketa1Id ? Number(taketaForm.taketa1Id) : 0,
-        taketa2Id: taketaForm.taketa2Id ? Number(taketaForm.taketa2Id) : 0,
-        taketa3Id: taketaForm.taketa3Id ? Number(taketaForm.taketa3Id) : 0,
       };
 
       if (taketaId) {
@@ -429,8 +425,7 @@ const TaketaTabContent = ({ taketaType }) => {
               name="loanId"
               value={taketaForm.loanId}
               onChange={handleTaketaChange}
-              placeholder="Loan ID number"
-              type="number"
+              placeholder="Loan ID (e.g. 082/083-1)"
               required
             />
             <FormField
@@ -461,13 +456,15 @@ const TaketaTabContent = ({ taketaType }) => {
               onChange={handleTaketaChange}
               placeholder="जस्तै: ४,५०,०००"
             />
-            <FormField
-              label="जरिवाना रकम (Fine Amount)"
-              name="fineAmount"
-              value={taketaForm.fineAmount}
-              onChange={handleTaketaChange}
-              placeholder="जस्तै: १०,०००"
-            />
+            {hasFineAmount && (
+              <FormField
+                label="जरिवाना रकम (Fine Amount)"
+                name="fineAmount"
+                value={taketaForm.fineAmount}
+                onChange={handleTaketaChange}
+                placeholder="जस्तै: १०,०००"
+              />
+            )}
             <FormField
               label="जम्मा रकम (Total Amount)"
               name="totalAmount"
@@ -488,38 +485,7 @@ const TaketaTabContent = ({ taketaType }) => {
             </div>
           </div>
 
-          {/* Optional cross-reference IDs */}
-          <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px dashed var(--gray-200)' }}>
-            <p style={{ fontSize: '0.8rem', color: 'var(--gray-500)', marginBottom: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Cross-reference (Optional)
-            </p>
-            <div className="form-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-              <FormField
-                label="Taketa 1 ID"
-                name="taketa1Id"
-                value={taketaForm.taketa1Id}
-                onChange={handleTaketaChange}
-                placeholder="ID"
-                type="number"
-              />
-              <FormField
-                label="Taketa 2 ID"
-                name="taketa2Id"
-                value={taketaForm.taketa2Id}
-                onChange={handleTaketaChange}
-                placeholder="ID"
-                type="number"
-              />
-              <FormField
-                label="Taketa 3 ID"
-                name="taketa3Id"
-                value={taketaForm.taketa3Id}
-                onChange={handleTaketaChange}
-                placeholder="ID"
-                type="number"
-              />
-            </div>
-          </div>
+
 
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
             <button

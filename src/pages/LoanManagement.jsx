@@ -210,7 +210,7 @@ const LoanManagement = () => {
               ) : (
                 loans.map((loan) => (
                   <tr key={loan.id}>
-                    <td>{loan.effectiveLoanId}</td>
+                    <td>{loan.loanId}</td>
                     <td>{loan.membershipId}</td>
                     <td>{loan.clientNameNepali}</td>
                     <td>{loan.contactNumber}</td>

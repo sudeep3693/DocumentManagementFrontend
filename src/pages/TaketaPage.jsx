@@ -29,7 +29,7 @@ const EMPTY_ANUSUCHI = {
 };
 
 const EMPTY_TAKETA = {
-  loanId: '',
+  mLoanId: '',
   kittaNumber: '',
   remainingLoanAmount: '',
   interestAmount: '',
@@ -507,7 +507,7 @@ const TaketaTabContent = ({ taketaType }) => {
     setTaketaSaving(true);
     try {
       const payload = {
-        loanId: taketaForm.loanId,
+        mLoanId: taketaForm.mLoanId,
         anusuchiRelatedDocumentId: anusuchiId,
         type: taketaType,
         kittaNumber: taketaForm.kittaNumber,
@@ -546,17 +546,17 @@ const TaketaTabContent = ({ taketaType }) => {
 
   // ── PDF handlers ──
   const handleDownloadPdf = async (r) => {
-    const loanId = r.loanId;
-    if (!loanId) { toast.error('No Loan ID on this record'); return; }
+    const mLoanId = r.mLoanId;
+    if (!mLoanId) { toast.error('No Loan ID on this record'); return; }
     try {
       setDownloadingRecord(r.id);
-      const data = await downloadTaketaPdfApi(taketaType, loanId);
+      const data = await downloadTaketaPdfApi(taketaType, mLoanId);
       const html = data?.htmlContent;
       if (!html) throw new Error('No HTML content returned');
       printHtmlContent(html);
       // If not yet saved, save it
       if (!data.isGenerated) {
-        await saveTaketaPdfApi(taketaType, loanId);
+        await saveTaketaPdfApi(taketaType, mLoanId);
         toast.success('PDF generated and saved successfully');
       } else {
         toast.success('Print dialog opened — save as PDF');
@@ -585,7 +585,7 @@ const TaketaTabContent = ({ taketaType }) => {
       {historyRecord && (
         <TaketaHistoryModal
           taketaType={taketaType}
-          loanId={historyRecord.loanId}
+          loanId={historyRecord.mLoanId}
           onClose={() => setHistoryRecord(null)}
         />
       )}
@@ -665,9 +665,9 @@ const TaketaTabContent = ({ taketaType }) => {
         <form onSubmit={handleTaketaSubmit}>
           <div className="form-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }}>
             <FormField
-              label="Loan ID"
-              name="loanId"
-              value={taketaForm.loanId}
+              label="Loan ID (mLoanId)"
+              name="mLoanId"
+              value={taketaForm.mLoanId}
               onChange={handleTaketaChange}
               placeholder="Loan ID (e.g. 082/083-1)"
               required
@@ -758,7 +758,7 @@ const TaketaTabContent = ({ taketaType }) => {
           onEdit={(r) => {
             setTaketaId(r.id);
             setTaketaForm({
-              loanId: r.loanId ?? '',
+              mLoanId: r.mLoanId ?? '',
               kittaNumber: r.kittaNumber ?? '',
               remainingLoanAmount: r.remainingLoanAmount ?? '',
               interestAmount: r.interestAmount ?? '',

@@ -7,6 +7,11 @@ import {
   getTaketaPatraApi,
   createTaketaPatraApi,
   updateTaketaPatraApi,
+  downloadTaketaPdfApi,
+  saveTaketaPdfApi,
+  getTaketaPdfHistoryApi,
+  previewRegenerateTaketaPdfApi,
+  confirmRegenerateTaketaPdfApi,
 } from '../services/api';
 
 // ─── Constants ────────────────────────────────────────────────
@@ -46,6 +51,30 @@ const extractArray = (data) => {
   if (data.data && Array.isArray(data.data)) return data.data;
   if (data.content && Array.isArray(data.content)) return data.content;
   return [];
+};
+
+/** Open htmlContent in a hidden iframe and trigger print-to-PDF */
+const printHtmlContent = (htmlContent) => {
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.top = '-9999px';
+  iframe.style.left = '-9999px';
+  iframe.style.width = '210mm';
+  iframe.style.height = '297mm';
+  iframe.style.border = 'none';
+  document.body.appendChild(iframe);
+  const doc = iframe.contentDocument || iframe.contentWindow.document;
+  doc.open();
+  doc.write(htmlContent);
+  doc.close();
+  iframe.onload = () => {
+    try {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+    } finally {
+      setTimeout(() => document.body.removeChild(iframe), 1000);
+    }
+  };
 };
 
 // ─── Sub-components ───────────────────────────────────────────
@@ -96,8 +125,196 @@ const SectionCard = ({ icon, title, accentColor = 'var(--primary-500)', children
   </div>
 );
 
+/** History Modal — shows saved PDF history + regenerate */
+const TaketaHistoryModal = ({ taketaType, loanId, onClose }) => {
+  const toast = useToast();
+  const [loading, setLoading] = useState(true);
+  const [historyData, setHistoryData] = useState({ count: 0, documents: [] });
+  const [downloadingUrl, setDownloadingUrl] = useState(null);
+  const [previewHtml, setPreviewHtml] = useState(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [reason, setReason] = useState('');
+  const [confirming, setConfirming] = useState(false);
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        setLoading(true);
+        const data = await getTaketaPdfHistoryApi(taketaType, loanId);
+        setHistoryData(data || { count: 0, documents: [] });
+      } catch (err) {
+        toast.error(err.message || 'Failed to fetch history');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchHistory();
+  }, [taketaType, loanId]);
+
+  const handleDownloadHistoryDoc = async (url) => {
+    try {
+      setDownloadingUrl(url);
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Failed to fetch document');
+      const html = await res.text();
+      printHtmlContent(html);
+      toast.success('Print dialog opened — save as PDF');
+    } catch (err) {
+      toast.error('Failed to download document');
+    } finally {
+      setDownloadingUrl(null);
+    }
+  };
+
+  const handlePreviewRegenerate = async () => {
+    try {
+      setPreviewing(true);
+      const data = await previewRegenerateTaketaPdfApi(taketaType, loanId);
+      const html = data?.htmlContent;
+      if (!html) throw new Error('No HTML content returned');
+      setPreviewHtml(html);
+      toast.success('Preview generated — review before confirming');
+    } catch (err) {
+      toast.error(err.message || 'Failed to generate preview');
+    } finally {
+      setPreviewing(false);
+    }
+  };
+
+  const handleConfirmRegenerate = async (e) => {
+    e.preventDefault();
+    if (!reason.trim()) { toast.error('Reason is required'); return; }
+    try {
+      setConfirming(true);
+      await confirmRegenerateTaketaPdfApi(taketaType, loanId, { reason });
+      toast.success('Document regenerated and saved successfully');
+      setReason('');
+      setPreviewHtml(null);
+      // Refresh history
+      const data = await getTaketaPdfHistoryApi(taketaType, loanId);
+      setHistoryData(data || { count: 0, documents: [] });
+    } catch (err) {
+      toast.error(err.message || 'Failed to confirm regeneration');
+    } finally {
+      setConfirming(false);
+    }
+  };
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 1000,
+      background: 'rgba(0,0,0,0.45)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '1rem',
+    }} onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div style={{
+        background: '#fff', borderRadius: 'var(--radius-lg)',
+        width: '100%', maxWidth: '760px', maxHeight: '90vh',
+        display: 'flex', flexDirection: 'column',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+        overflow: 'hidden',
+      }}>
+        {/* Header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '1rem 1.25rem',
+          borderBottom: '1px solid var(--gray-100)',
+          background: 'var(--gray-50)',
+        }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>🕒 PDF Generation History</h3>
+            <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: 'var(--gray-500)' }}>Loan ID: {loanId}</p>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', color: 'var(--gray-500)' }}>✕</button>
+        </div>
+
+        {/* Body */}
+        <div style={{ overflowY: 'auto', padding: '1.25rem', flex: 1 }}>
+          {/* History table */}
+          <h4 style={{ margin: '0 0 0.75rem', fontSize: '0.9rem', fontWeight: 600 }}>Saved Documents</h4>
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--gray-400)' }}>⏳ Loading history…</div>
+          ) : historyData.documents?.length === 0 ? (
+            <p style={{ color: 'var(--gray-400)', fontStyle: 'italic', fontSize: '0.875rem' }}>No documents saved yet.</p>
+          ) : (
+            <div className="table-wrapper" style={{ marginBottom: '1.5rem' }}>
+              <table className="data-table" style={{ fontSize: '0.875rem' }}>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Reason</th>
+                    <th>Created At</th>
+                    <th style={{ textAlign: 'right' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historyData.documents.map((doc, i) => (
+                    <tr key={i}>
+                      <td>{i + 1}</td>
+                      <td>{doc.reason || '—'}</td>
+                      <td>{new Date(doc.createdAt).toLocaleString()}</td>
+                      <td style={{ textAlign: 'right' }}>
+                        <button
+                          className="btn btn-sm btn-primary"
+                          onClick={() => handleDownloadHistoryDoc(doc.documentUrl)}
+                          disabled={downloadingUrl === doc.documentUrl}
+                        >
+                          {downloadingUrl === doc.documentUrl ? 'Opening…' : '📥 Download PDF'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Regenerate section */}
+          <div style={{ borderTop: '1px solid var(--gray-100)', paddingTop: '1.25rem' }}>
+            <h4 style={{ margin: '0 0 0.75rem', fontSize: '0.9rem', fontWeight: 600 }}>🔄 Regenerate Document</h4>
+            {!previewHtml ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: 'flex-start' }}>
+                <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--gray-600)' }}>Generate a preview of the new document before confirming.</p>
+                <button className="btn btn-outline" onClick={handlePreviewRegenerate} disabled={previewing}>
+                  {previewing ? '⏳ Generating…' : '👁️ Preview Regenerated Document'}
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ background: 'var(--gray-50)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 500, fontSize: '0.875rem', color: 'var(--gray-700)' }}>✅ Preview ready</span>
+                  <button className="btn btn-sm btn-outline" onClick={() => printHtmlContent(previewHtml)}>📄 View / Print Preview</button>
+                </div>
+                <form onSubmit={handleConfirmRegenerate} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label>Reason for Regeneration *</label>
+                    <textarea
+                      value={reason}
+                      onChange={(e) => setReason(e.target.value)}
+                      placeholder="Provide a reason for regenerating the document"
+                      rows={3}
+                      required
+                      style={{ resize: 'vertical', width: '100%' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                    <button type="button" className="btn btn-outline" onClick={() => setPreviewHtml(null)}>Cancel</button>
+                    <button type="submit" className="btn btn-success" disabled={confirming || !reason.trim()}>
+                      {confirming ? 'Saving…' : '✅ Confirm Regeneration'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /** Records table with pagination */
-const RecordsTable = ({ records }) => {
+const RecordsTable = ({ records, onEdit, onDownload, onHistory }) => {
   const [page, setPage] = useState(0);
   const totalPages = Math.ceil(records.length / PAGE_SIZE);
   const pageData = records.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
@@ -126,7 +343,7 @@ const RecordsTable = ({ records }) => {
               <th>Interest Amount</th>
               <th>Fine Amount</th>
               <th>Total Amount</th>
-              <th>Reason</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -139,8 +356,12 @@ const RecordsTable = ({ records }) => {
                 <td>{r.interestAmount ?? '—'}</td>
                 <td>{r.fineAmount ?? '—'}</td>
                 <td style={{ fontWeight: 600, color: 'var(--primary-700)' }}>{r.totalAmount ?? '—'}</td>
-                <td style={{ color: 'var(--gray-500)', fontSize: '0.82rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {r.reason ?? '—'}
+                <td>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button className="btn btn-sm btn-outline" onClick={() => onEdit(r)}>✏️ Edit</button>
+                    <button className="btn btn-sm btn-outline" onClick={() => onDownload(r)}>📥 Download</button>
+                    <button className="btn btn-sm btn-outline" onClick={() => onHistory(r)}>🕒 History</button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -180,6 +401,10 @@ const TaketaTabContent = ({ taketaType }) => {
   const [taketaLoading, setTaketaLoading] = useState(false);
   const [taketaSaving, setTaketaSaving] = useState(false);
 
+  // PDF / History state
+  const [downloadingRecord, setDownloadingRecord] = useState(null);
+  const [historyRecord, setHistoryRecord] = useState(null); // record whose history is open
+
   // ── Load existing data on tab mount ──
   const loadData = useCallback(async () => {
     setAnusuchiLoading(true);
@@ -215,24 +440,9 @@ const TaketaTabContent = ({ taketaType }) => {
       const taketaList = extractArray(taketaRes);
       setRecords(taketaList);
 
-      // Pre-populate form with the most recent record for editing
-      if (taketaList.length > 0) {
-        const latest = taketaList[0];
-        setTaketaId(latest.id);
-        setTaketaForm({
-          loanId: latest.loanId ?? '',
-          kittaNumber: latest.kittaNumber ?? '',
-          remainingLoanAmount: latest.remainingLoanAmount ?? '',
-          interestAmount: latest.interestAmount ?? '',
-          loanAmount: latest.loanAmount ?? '',
-          fineAmount: latest.fineAmount ?? '',
-          totalAmount: latest.totalAmount ?? '',
-          reason: latest.reason ?? '',
-        });
-      } else {
-        setTaketaId(null);
-        setTaketaForm(EMPTY_TAKETA);
-      }
+      // Leave fields empty on load and after save
+      setTaketaId(null);
+      setTaketaForm(EMPTY_TAKETA);
     } catch {
       setRecords([]);
       setTaketaId(null);
@@ -334,6 +544,30 @@ const TaketaTabContent = ({ taketaType }) => {
     setTaketaForm(EMPTY_TAKETA);
   };
 
+  // ── PDF handlers ──
+  const handleDownloadPdf = async (r) => {
+    const loanId = r.loanId;
+    if (!loanId) { toast.error('No Loan ID on this record'); return; }
+    try {
+      setDownloadingRecord(r.id);
+      const data = await downloadTaketaPdfApi(taketaType, loanId);
+      const html = data?.htmlContent;
+      if (!html) throw new Error('No HTML content returned');
+      printHtmlContent(html);
+      // If not yet saved, save it
+      if (!data.isGenerated) {
+        await saveTaketaPdfApi(taketaType, loanId);
+        toast.success('PDF generated and saved successfully');
+      } else {
+        toast.success('Print dialog opened — save as PDF');
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to download PDF');
+    } finally {
+      setDownloadingRecord(null);
+    }
+  };
+
   const isLoading = anusuchiLoading || taketaLoading;
 
   if (isLoading) {
@@ -346,7 +580,17 @@ const TaketaTabContent = ({ taketaType }) => {
   }
 
   return (
-    <div>
+    <>
+      {/* ── History Modal ── */}
+      {historyRecord && (
+        <TaketaHistoryModal
+          taketaType={taketaType}
+          loanId={historyRecord.loanId}
+          onClose={() => setHistoryRecord(null)}
+        />
+      )}
+
+      <div>
       {/* ── Anusuchi Section ── */}
       <SectionCard
         icon="📜"
@@ -509,9 +753,28 @@ const TaketaTabContent = ({ taketaType }) => {
         title={`Existing Records (${records.length})`}
         accentColor="var(--info-500)"
       >
-        <RecordsTable records={records} />
+        <RecordsTable 
+          records={records} 
+          onEdit={(r) => {
+            setTaketaId(r.id);
+            setTaketaForm({
+              loanId: r.loanId ?? '',
+              kittaNumber: r.kittaNumber ?? '',
+              remainingLoanAmount: r.remainingLoanAmount ?? '',
+              interestAmount: r.interestAmount ?? '',
+              loanAmount: r.loanAmount ?? '',
+              fineAmount: r.fineAmount ?? '',
+              totalAmount: r.totalAmount ?? '',
+              reason: r.reason ?? '',
+            });
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onDownload={(r) => handleDownloadPdf(r)}
+          onHistory={(r) => setHistoryRecord(r)}
+        />
       </SectionCard>
-    </div>
+      </div>
+    </>
   );
 };
 

@@ -60,20 +60,17 @@ const NotificationBell = () => {
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-  const handleOpen = async () => {
+  const handleOpen = () => {
     setOpen((prev) => !prev);
-    // When opening, if there are unread, mark them as read in backend
-    if (!open && unreadCount > 0) {
-      const unreadNotifs = notifications.filter(n => !n.isRead);
-      try {
-        await Promise.all(
-          unreadNotifs.map(n => markNotificationReadApi(n.id, recipientType))
-        );
-        // Optimistically update local state
-        setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-      } catch (err) {
-        console.error('Failed to mark notifications as read', err);
-      }
+  };
+
+  const handleNotificationClick = async (n) => {
+    if (n.isRead) return;
+    try {
+      await markNotificationReadApi(n.id, recipientType);
+      setNotifications(prev => prev.map(notif => notif.id === n.id ? { ...notif, isRead: true } : notif));
+    } catch (err) {
+      console.error('Failed to mark notification as read', err);
     }
   };
 
@@ -110,6 +107,8 @@ const NotificationBell = () => {
                 <div
                   key={n.id}
                   className={`notif-item ${n.isRead ? 'notif-item-read' : 'notif-item-unread'}`}
+                  onClick={() => handleNotificationClick(n)}
+                  style={!n.isRead ? { cursor: 'pointer' } : {}}
                 >
                   <div className="notif-item-icon">{getNotificationIcon(n.notificationType)}</div>
                   <div className="notif-item-body">

@@ -432,4 +432,34 @@ export const updateTaketaPatraApi = async (id, data) => {
   return response.data;
 };
 
+// ==================== TAKETA PDF SERVICES (Real Backend) ====================
 
+/** GET /api/v1/pdf/taketa/{taketaType}/{loanId} — generate/get html content */
+export const downloadTaketaPdfApi = async (taketaType, loanId) => {
+  const response = await axiosInstance.get(`/api/v1/pdf/taketa/${taketaType}/${loanId}`);
+  return response.data;
+};
+
+/** POST /api/v1/pdf/taketa/save/{taketaType}/{loanId} — save generated pdf */
+export const saveTaketaPdfApi = async (taketaType, loanId) => {
+  const response = await axiosInstance.post(`/api/v1/pdf/taketa/save/${taketaType}/${loanId}`);
+  return response.data;
+};
+
+/** GET /api/v1/pdf/taketa/history/{taketaType}/{loanId} — history of saved pdfs */
+export const getTaketaPdfHistoryApi = async (taketaType, loanId) => {
+  const response = await axiosInstance.get(`/api/v1/pdf/taketa/history/${taketaType}/${loanId}`);
+  return response.data;
+};
+
+/** GET /api/v1/pdf/taketa/regenerate/{taketaType}/{loanId} — preview regenerated html */
+export const previewRegenerateTaketaPdfApi = async (taketaType, loanId) => {
+  const response = await axiosInstance.get(`/api/v1/pdf/taketa/regenerate/${taketaType}/${loanId}`);
+  return response.data;
+};
+
+/** POST /api/v1/pdf/taketa/regenerate/confirm/{taketaType}/{loanId} — confirm regeneration */
+export const confirmRegenerateTaketaPdfApi = async (taketaType, loanId, data) => {
+  const response = await axiosInstance.post(`/api/v1/pdf/taketa/regenerate/confirm/${taketaType}/${loanId}`, data);
+  return response.data;
+};
